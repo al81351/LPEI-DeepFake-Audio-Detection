@@ -1,0 +1,6 @@
+librosa
+numpy
+soundfile
+pytest
+fastapi
+scikit-learn

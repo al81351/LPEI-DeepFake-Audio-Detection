@@ -1,0 +1,20 @@
+# Ambientes virtuais
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Modelos treinados
+backend/models/*.pkl
+
+# Ficheiros de sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.antigravity/
+.vscode/settings.json
