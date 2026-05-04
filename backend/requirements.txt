@@ -4,3 +4,4 @@ soundfile
 pytest
 fastapi
 scikit-learn
+joblib
