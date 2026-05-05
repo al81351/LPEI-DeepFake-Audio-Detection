@@ -17,4 +17,4 @@ Thumbs.db
 
 # IDEs
 .antigravity/
-.vscode/settings.json
+.vscode/settings.jsonvenv\Scripts\activate

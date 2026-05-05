@@ -3,5 +3,7 @@ numpy
 soundfile
 pytest
 fastapi
+uvicorn[standard]
+python-multipart
 scikit-learn
 joblib
