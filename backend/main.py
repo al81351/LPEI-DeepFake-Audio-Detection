@@ -1,17 +1,20 @@
 """FastAPI application for the Digital Voice Shield deepfake audio detection service."""
 
+import json
 import os
 import uuid
 import tempfile
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+import numpy as np
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from analyzer.detector import Detector
 from analyzer.feature_extractor import FeatureExtractor
+from analyzer.realtime import RealtimeProcessor
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -265,6 +268,145 @@ def export_report() -> JSONResponse:
         content=report.model_dump(),
         headers={"Content-Disposition": "attachment; filename=dvs_report.json"},
     )
+
+
+# ---------------------------------------------------------------------------
+# WebSocket — real-time stream analysis  (RF-02, RNF-01)
+# ---------------------------------------------------------------------------
+
+
+@app.websocket("/analyze-stream")
+async def analyze_stream(websocket: WebSocket) -> None:
+    """WebSocket endpoint for real-time deepfake detection (RF-02, RNF-01).
+
+    Processes a continuous audio stream from the browser microphone and
+    pushes syntheticity index updates at ≤ 200 ms intervals.
+
+    Protocol
+    --------
+    1. **Handshake** — client sends a UTF-8 JSON config frame::
+
+        {"sample_rate": 22050, "threshold": 50.0}
+
+       Both fields are optional; defaults are 22 050 Hz and 50.0.
+
+    2. **Streaming** — client sends raw PCM audio as **binary** frames
+       (float32, little-endian, mono).  Any number of samples per frame
+       is acceptable; the processor accumulates them internally.
+
+    3. **Results** — whenever the sliding window has ≥ 200 ms of new data
+       *and* the buffer holds ≥ 512 samples, the server responds with a
+       UTF-8 JSON frame::
+
+        {
+          "syntheticity_index": 73.4,
+          "label":              "synthetic",
+          "confidence":         73.4,
+          "is_alert":           true,
+          "buffer_seconds":     1.0
+        }
+
+    4. **Close** — the client closes the connection normally; the server
+       resets the processor and exits cleanly.
+
+    Error handling
+    --------------
+    - If the model is unavailable the server sends
+      ``{"error": "…"}`` and closes with code 1011.
+    - Malformed binary frames produce ``{"error": "…"}`` but keep the
+      connection alive so the stream can recover.
+
+    Args:
+        websocket: The WebSocket connection injected by FastAPI.
+    """
+    await websocket.accept()
+
+    try:
+        detector = _get_detector()
+    except HTTPException as exc:
+        await websocket.send_text(json.dumps({"error": exc.detail}))
+        await websocket.close(code=1011)
+        return
+
+    # ------------------------------------------------------------------
+    # Step 1 — read optional config frame
+    # ------------------------------------------------------------------
+    sample_rate: int = 22050
+    threshold: float = 50.0
+    first_audio_bytes: bytes | None = None  # may hold the first audio frame
+
+    try:
+        raw = await websocket.receive()
+        if raw.get("text"):
+            cfg = json.loads(raw["text"])
+            sample_rate = int(cfg.get("sample_rate", sample_rate))
+            threshold = float(cfg.get("threshold", threshold))
+            if not (0.0 <= threshold <= 100.0):
+                raise ValueError(f"threshold fora do intervalo [0, 100]: {threshold}")
+        elif raw.get("bytes"):
+            # Client skipped the config frame — treat this as the first audio chunk
+            first_audio_bytes = raw["bytes"]
+    except (json.JSONDecodeError, ValueError, KeyError) as exc:
+        await websocket.send_text(json.dumps({"error": f"Config inválida: {exc}"}))
+        await websocket.close(code=1008)
+        return
+
+    processor = RealtimeProcessor(sample_rate=sample_rate)
+
+    # ------------------------------------------------------------------
+    # Helper — process one binary frame
+    # ------------------------------------------------------------------
+    async def _process_binary(data: bytes) -> None:
+        try:
+            chunk = np.frombuffer(data, dtype=np.float32)
+        except ValueError as exc:
+            await websocket.send_text(json.dumps({"error": f"Frame inválido: {exc}"}))
+            return
+
+        processor.push_chunk(chunk)
+
+        if processor.should_analyze():
+            window = processor.get_window()
+            result = detector.analyze_chunk(window, processor.sample_rate)
+            is_alert = detector.is_above_threshold(result, threshold=threshold)
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "syntheticity_index": round(result["syntheticity_index"], 2),
+                        "label": result["label"],
+                        "confidence": round(result["confidence"], 2),
+                        "is_alert": is_alert,
+                        "buffer_seconds": round(processor.buffer_seconds, 3),
+                    }
+                )
+            )
+
+    # Process the first frame if it arrived before the config
+    if first_audio_bytes is not None:
+        await _process_binary(first_audio_bytes)
+
+    # ------------------------------------------------------------------
+    # Step 2 — main receive loop
+    # ------------------------------------------------------------------
+    try:
+        while True:
+            raw = await websocket.receive()
+
+            if raw.get("bytes"):
+                await _process_binary(raw["bytes"])
+            elif raw.get("text"):
+                # Accept mid-session threshold updates: {"threshold": 70}
+                try:
+                    msg = json.loads(raw["text"])
+                    if "threshold" in msg:
+                        new_thr = float(msg["threshold"])
+                        if 0.0 <= new_thr <= 100.0:
+                            threshold = new_thr
+                except (json.JSONDecodeError, ValueError):
+                    pass  # silently ignore malformed text frames
+
+    except WebSocketDisconnect:
+        processor.reset()
 
 
 # ---------------------------------------------------------------------------
