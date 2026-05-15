@@ -6,15 +6,17 @@ import uuid
 import tempfile
 from datetime import datetime, timezone
 
+import librosa
 import numpy as np
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from analyzer.artifacts import ArtifactAnalyzer
 from analyzer.detector import Detector
 from analyzer.feature_extractor import FeatureExtractor
 from analyzer.realtime import RealtimeProcessor
+from analyzer.report_generator import ReportGenerator
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -39,6 +41,7 @@ class AnalysisResult(BaseModel):
     threshold_used: float
     mfccs: list[float]
     spectrogram: dict
+    metrics: dict
     file_name: str
     timestamp: str
 
@@ -50,15 +53,10 @@ class HistoryEntry(BaseModel):
     file_name: str
     syntheticity_index: float
     label: str
+    confidence: float
+    is_alert: bool
+    metrics: dict
     timestamp: str
-
-
-class ExportReport(BaseModel):
-    """Exportable JSON report covering the full session history."""
-
-    generated_at: str
-    total_analyses: int
-    analyses: list[HistoryEntry]
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +91,8 @@ _session_history: list[HistoryEntry] = []
 
 _detector: Detector | None = None
 _extractor: FeatureExtractor = FeatureExtractor()
+_artifact_analyzer: ArtifactAnalyzer = ArtifactAnalyzer()
+_report_generator: ReportGenerator = ReportGenerator()
 
 
 def _get_detector() -> Detector:
@@ -189,6 +189,7 @@ async def analyze_audio(
 
         signal, sample_rate = _extractor.load_audio(tmp_path)
         spectrogram_raw = _extractor.extract_spectrogram(signal, sample_rate)
+        metrics = _artifact_analyzer.analyze(signal, sample_rate)
 
     except HTTPException:
         raise
@@ -212,6 +213,9 @@ async def analyze_audio(
         file_name=file.filename or "unknown",
         syntheticity_index=detection["syntheticity_index"],
         label=detection["label"],
+        confidence=detection["confidence"],
+        is_alert=is_alert,
+        metrics=metrics,
         timestamp=timestamp,
     )
     _session_history.append(entry)
@@ -224,6 +228,7 @@ async def analyze_audio(
         threshold_used=threshold,
         mfccs=detection["mfccs"],
         spectrogram=spectrogram,
+        metrics=metrics,
         file_name=file.filename or "unknown",
         timestamp=timestamp,
     )
@@ -250,23 +255,30 @@ def clear_history() -> dict:
     return {"message": "Histórico limpo"}
 
 
-@app.post("/export", summary="Export session report as JSON")
-def export_report() -> JSONResponse:
-    """Generates a downloadable JSON report of the full session history (RF-12).
+@app.post("/export", summary="Export session report as PDF")
+async def export_report() -> Response:
+    """Generates a downloadable PDF report of the full session history (RF-12).
 
     Returns:
-        :class:`~fastapi.responses.JSONResponse` with a
+        PDF binary :class:`~fastapi.responses.Response` with a
         ``Content-Disposition: attachment`` header so browsers trigger a
         file download.
+
+    Raises:
+        HTTPException: 404 if there are no analyses in the current session.
     """
-    report = ExportReport(
-        generated_at=datetime.now(timezone.utc).isoformat(),
-        total_analyses=len(_session_history),
-        analyses=list(_session_history),
+    if not _session_history:
+        raise HTTPException(status_code=404, detail="Sem análises para exportar.")
+
+    pdf_bytes = _report_generator.generate_pdf(
+        [entry.model_dump() for entry in _session_history]
     )
-    return JSONResponse(
-        content=report.model_dump(),
-        headers={"Content-Disposition": "attachment; filename=dvs_report.json"},
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": "attachment; filename=digital_voice_shield_report.pdf"
+        },
     )
 
 
@@ -369,6 +381,10 @@ async def analyze_stream(websocket: WebSocket) -> None:
             window = processor.get_window()
             result = detector.analyze_chunk(window, processor.sample_rate)
             is_alert = detector.is_above_threshold(result, threshold=threshold)
+            rms_energy = round(float(np.sqrt(np.mean(window ** 2))), 4)
+            zero_crossing_rate = round(
+                float(np.mean(librosa.feature.zero_crossing_rate(window))), 4
+            )
             await websocket.send_text(
                 json.dumps(
                     {
@@ -377,6 +393,10 @@ async def analyze_stream(websocket: WebSocket) -> None:
                         "confidence": round(result["confidence"], 2),
                         "is_alert": is_alert,
                         "buffer_seconds": round(processor.buffer_seconds, 3),
+                        "realtime_metrics": {
+                            "rms_energy": rms_energy,
+                            "zero_crossing_rate": zero_crossing_rate,
+                        },
                     }
                 )
             )
