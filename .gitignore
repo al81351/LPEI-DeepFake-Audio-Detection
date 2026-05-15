@@ -11,6 +11,10 @@ __pycache__/
 # Modelos treinados
 backend/models/*.pkl
 
+# Datasets de áudio
+data/real_audio/
+data/deepfake_audio/
+
 # Ficheiros de sistema
 .DS_Store
 Thumbs.db

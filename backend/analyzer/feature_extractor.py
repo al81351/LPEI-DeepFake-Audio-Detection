@@ -91,9 +91,14 @@ class FeatureExtractor:
             np.ndarray: A 1D array of shape (n_mfccs,) containing the mean of each MFCC over time.
         """
         mfccs = librosa.feature.mfcc(y=signal, sr=sample_rate, n_mfcc=n_mfccs)
-        # Calculate mean across time (axis=1) as specified
-        mean_mfccs = np.mean(mfccs, axis=1)
-        return mean_mfccs
+        delta = librosa.feature.delta(mfccs)
+        delta2 = librosa.feature.delta(mfccs, order=2)
+        combined = np.concatenate([
+            np.mean(mfccs, axis=1),
+            np.mean(delta, axis=1),
+            np.mean(delta2, axis=1),
+        ])
+        return combined
 
     def extract_spectrogram(self, signal: np.ndarray, sample_rate: int) -> dict:
         """
