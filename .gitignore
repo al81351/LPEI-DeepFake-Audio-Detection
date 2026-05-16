@@ -1,3 +1,6 @@
+# Claude Code (memória e configuração local)
+.claude/
+
 # Ambientes virtuais
 venv/
 .venv/

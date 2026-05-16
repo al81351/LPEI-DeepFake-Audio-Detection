@@ -32,8 +32,9 @@ class FeatureExtractor:
             raise ValueError(f"Unsupported audio format: {ext}. Supported formats are: {', '.join(self.SUPPORTED_FORMATS)}")
 
         try:
-            # Load audio using librosa, keeping original sample rate (sr=None)
-            signal, sample_rate = librosa.load(file_path, sr=None)
+            # Resample to 22 050 Hz so features are in the same space as
+            # real-time inference (WebSocket stream is also at 22 050 Hz).
+            signal, sample_rate = librosa.load(file_path, sr=22050)
         except Exception as e:
             raise ValueError(f"Error loading audio file: {e}")
 

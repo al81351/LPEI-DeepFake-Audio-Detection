@@ -7,10 +7,12 @@ import librosa
 # Normalization thresholds for artifact scores
 # ---------------------------------------------------------------------------
 
-# Variance (dB²) of the mel spectrogram below which over-smoothing is
-# suspected.  A typical natural-speech mel spectrogram has variance well
-# above this; TTS-generated speech tends to be unnaturally flat.
-_MEL_VAR_THRESHOLD: float = 100.0
+# Spectral flatness threshold for over-smoothing detection.
+# Natural speech has a highly structured harmonic spectrum and very low
+# spectral flatness (~0.0005–0.005).  Neural TTS synthesis and subsequent
+# codec encoding (MP3/AAC) introduce spectral noise that raises flatness
+# toward 0.01–0.15.  Values above this threshold are considered suspicious.
+_FLATNESS_SYNTHETIC_THRESHOLD: float = 0.04
 
 # Mean frame-to-frame mel spectrogram change (dB) mapped to a score of 1.0.
 # Values above this threshold indicate strong spectral discontinuities.
@@ -148,11 +150,16 @@ class ArtifactAnalyzer:
         }
 
     def _over_smoothing_score(self, signal: np.ndarray, sample_rate: int) -> float:
-        """Detects over-smoothing via mel spectrogram variance.
+        """Detects spectral over-smoothing via elevated spectral flatness.
 
-        Low variance in the dB-scaled mel spectrogram indicates that spectral
-        transitions are unnaturally flat — a common trait of parametric and
-        neural TTS systems.
+        Natural speech has a richly structured harmonic spectrum (voiced
+        phonemes produce sharp formant peaks) and consequently very low
+        spectral flatness (geometric/arithmetic mean ratio ≈ 0.0005–0.005).
+        Neural TTS synthesis blends frequency bins during decoding and the
+        output is commonly re-encoded with lossy codecs (MP3/AAC), both of
+        which introduce broadband spectral noise that raises flatness toward
+        0.01–0.15.  A flatness approaching ``_FLATNESS_SYNTHETIC_THRESHOLD``
+        therefore indicates suspicious over-smoothing of the spectral envelope.
 
         Args:
             signal: 1-D audio samples.
@@ -162,9 +169,9 @@ class ArtifactAnalyzer:
             Score in [0.0, 1.0]; higher means more over-smoothed.
         """
         try:
-            mel = librosa.feature.melspectrogram(y=signal, sr=sample_rate)
-            mel_db = librosa.power_to_db(mel, ref=np.max)
-            score = 1.0 - np.clip(np.var(mel_db) / _MEL_VAR_THRESHOLD, 0.0, 1.0)
+            flatness = librosa.feature.spectral_flatness(y=signal)
+            mean_flatness = float(np.mean(flatness))
+            score = np.clip(mean_flatness / _FLATNESS_SYNTHETIC_THRESHOLD, 0.0, 1.0)
             return round(float(score), 4)
         except Exception:
             return 0.0

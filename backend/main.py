@@ -73,7 +73,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -349,6 +349,8 @@ async def analyze_stream(websocket: WebSocket) -> None:
 
     try:
         raw = await websocket.receive()
+        if raw.get("type") == "websocket.disconnect":
+            return
         if raw.get("text"):
             cfg = json.loads(raw["text"])
             sample_rate = int(cfg.get("sample_rate", sample_rate))
@@ -425,7 +427,7 @@ async def analyze_stream(websocket: WebSocket) -> None:
                 except (json.JSONDecodeError, ValueError):
                     pass  # silently ignore malformed text frames
 
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, RuntimeError):
         processor.reset()
 
 

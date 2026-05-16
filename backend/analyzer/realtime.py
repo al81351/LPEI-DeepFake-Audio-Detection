@@ -20,8 +20,9 @@ import numpy as np
 #: Minimum number of samples required to extract meaningful MFCCs.
 _MIN_SAMPLES: int = 512
 
-#: Default analysis window length in seconds (1 s gives stable MFCCs).
-_WINDOW_SECONDS: float = 1.0
+#: Default analysis window length in seconds.
+#: 3 s gives statistics closer to the full-file training distribution.
+_WINDOW_SECONDS: float = 3.0
 
 #: Minimum interval between consecutive analyses in seconds (≤ 200 ms → RNF-01).
 _HOP_SECONDS: float = 0.2
