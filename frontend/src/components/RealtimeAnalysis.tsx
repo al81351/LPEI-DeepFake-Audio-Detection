@@ -2,13 +2,14 @@ import { useState, useRef, useEffect } from 'react';
 import { useRealtimeStream } from '../hooks/useRealtimeStream';
 import { SyntheticityGauge } from './SyntheticityGauge';
 import { ThresholdSlider }   from './ThresholdSlider';
+import { VoiceInput }        from './ui/voice-input';
 
 function MiniCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="glass-card p-4">
       <div
-        className="text-xs uppercase tracking-widest font-mono mb-1"
-        style={{ color: 'rgba(255,255,255,0.38)', letterSpacing: '0.07em' }}
+        className="text-xs uppercase tracking-widest font-mono mb-1.5"
+        style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.07em' }}
       >
         {label}
       </div>
@@ -22,13 +23,12 @@ function MiniCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-const EMA_ALPHA = 0.3; // responsiveness vs stability (higher = more reactive)
+const EMA_ALPHA = 0.3;
 
 export function RealtimeAnalysis() {
   const [threshold, setThreshold]               = useState(50);
   const { update, status, error, startCapture, stopCapture } = useRealtimeStream();
 
-  // Smoothed display value using Exponential Moving Average
   const [smoothedIndex, setSmoothedIndex] = useState(0);
   const emaRef = useRef<number | null>(null);
 
@@ -56,18 +56,23 @@ export function RealtimeAnalysis() {
     return                         { label: 'A Capturar',   color: 'var(--color-safe)',      dotColor: 'var(--color-safe)',       dotAnim: 'capture-pulse 2s ease-in-out infinite' };
   })();
 
-  const handleToggle = () => {
-    if (isCapturing) {
-      stopCapture();
-    } else {
-      void startCapture(threshold);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Estado + botão ─────────────────────────────────── */}
-      <div className="glass-card p-5 flex items-center justify-between gap-4">
+      {/* Section header */}
+      <div>
+        <h2
+          className="font-mono font-bold text-xl mb-1"
+          style={{ color: 'var(--color-accent)' }}
+        >
+          Análise em Tempo Real
+        </h2>
+        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Captura contínua via microfone com latência ≤ 200 ms.
+        </p>
+      </div>
+
+      {/* Status indicator + VoiceInput control */}
+      <div className="glass-card p-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div
             className="w-3 h-3 rounded-full flex-shrink-0"
@@ -82,34 +87,25 @@ export function RealtimeAnalysis() {
           </span>
         </div>
 
-        <button
-          onClick={handleToggle}
-          className="px-6 py-2.5 rounded-lg font-semibold text-sm uppercase tracking-widest transition-all duration-200"
-          style={{
-            background:    isCapturing ? 'rgba(255,51,102,0.12)' : 'var(--color-accent)',
-            color:         isCapturing ? 'var(--color-danger)'   : 'oklch(10% 0.01 260)',
-            border:        isCapturing ? '1px solid rgba(255,51,102,0.45)' : 'none',
-            letterSpacing: '0.1em',
-            boxShadow:     !isCapturing ? '0 0 20px oklch(70% 0.18 250 / 0.3)' : 'none',
-            cursor: 'pointer',
-          }}
-        >
-          {isCapturing ? 'Parar Captura' : 'Iniciar Captura'}
-        </button>
+        <VoiceInput
+          isActive={isCapturing}
+          onStart={() => void startCapture(threshold)}
+          onStop={() => stopCapture()}
+        />
       </div>
 
-      {/* Erro de microfone / WebSocket */}
+      {/* Microphone/WebSocket error */}
       {status === 'error' && error && (
         <div
-          className="px-4 py-3 rounded-lg text-sm animate-fade-in"
+          className="px-4 py-3 rounded-xl text-sm animate-fade-in"
           style={{ background: 'rgba(255,51,102,0.08)', border: '1px solid rgba(255,51,102,0.25)', color: 'var(--color-danger)' }}
         >
           {error}
         </div>
       )}
 
-      {/* ── Gauge central ──────────────────────────────────── */}
-      <div className="flex flex-col items-center py-4">
+      {/* Central gauge */}
+      <div className="flex flex-col items-center py-2">
         <SyntheticityGauge
           value={smoothedIndex}
           threshold={threshold}
@@ -118,14 +114,14 @@ export function RealtimeAnalysis() {
         {update && (
           <div
             className="mt-2 font-mono text-sm tabular"
-            style={{ color: 'rgba(255,255,255,0.4)' }}
+            style={{ color: 'rgba(255,255,255,0.35)' }}
           >
             buffer: {update.buffer_seconds.toFixed(2)}s
           </div>
         )}
       </div>
 
-      {/* ── 2 mini cards ───────────────────────────────────── */}
+      {/* Mini metric cards */}
       <div className="grid grid-cols-2 gap-4">
         <MiniCard
           label="Energia RMS"
@@ -137,8 +133,8 @@ export function RealtimeAnalysis() {
         />
       </div>
 
-      {/* ── Limiar (desactivado durante captura) ───────────── */}
-      <div className="glass-card p-5">
+      {/* Threshold slider */}
+      <div className="glass-card p-4">
         <ThresholdSlider
           value={threshold}
           onChange={setThreshold}
@@ -147,17 +143,16 @@ export function RealtimeAnalysis() {
         {isCapturing && (
           <p
             className="text-xs font-mono mt-3"
-            style={{ color: 'rgba(255,255,255,0.3)' }}
+            style={{ color: 'rgba(255,255,255,0.28)' }}
           >
             Altere o limiar após parar a captura.
           </p>
         )}
       </div>
 
-      {/* Nota técnica */}
       <p
         className="text-xs text-center font-mono px-4"
-        style={{ color: 'rgba(255,255,255,0.22)', lineHeight: 1.7 }}
+        style={{ color: 'rgba(255,255,255,0.2)', lineHeight: 1.7 }}
       >
         Espectrograma e artefactos detalhados não estão disponíveis em tempo real
         para garantir latência ≤ 200 ms (RNF-01).

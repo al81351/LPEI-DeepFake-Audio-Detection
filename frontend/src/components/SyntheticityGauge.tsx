@@ -8,15 +8,21 @@ interface SyntheticityGaugeProps {
 }
 
 const SIZE_MAP = {
-  sm: { vb: 140, cx: 70,  cy: 70,  r: 54,  sw: 9,  numSz: 26, labSz: 8,  labOff: 16 },
-  md: { vb: 200, cx: 100, cy: 100, r: 80,  sw: 12, numSz: 36, labSz: 10, labOff: 20 },
-  lg: { vb: 280, cx: 140, cy: 140, r: 112, sw: 16, numSz: 50, labSz: 13, labOff: 28 },
+  sm: { vb: 160, cx: 80,  cy: 80,  r: 60,  sw: 10, numSz: 28, labSz: 8,  labOff: 18 },
+  md: { vb: 220, cx: 110, cy: 110, r: 88,  sw: 13, numSz: 40, labSz: 11, labOff: 22 },
+  lg: { vb: 300, cx: 150, cy: 150, r: 118, sw: 17, numSz: 54, labSz: 14, labOff: 30 },
 } as const;
 
 const COLOR_MAP = {
   safe:   'var(--color-safe)',
   warn:   'var(--color-warn)',
   danger: 'var(--color-danger)',
+};
+
+const LABEL_MAP = {
+  safe:   'REAL',
+  warn:   'INCERTO',
+  danger: 'SINTÉTICO',
 };
 
 export function SyntheticityGauge({
@@ -27,11 +33,11 @@ export function SyntheticityGauge({
   const [displayValue, setDisplayValue] = useState(0);
   const rafRef        = useRef<number | null>(null);
   const startTimeRef  = useRef<number | null>(null);
-  const currentValRef = useRef(0); // always tracks the last rendered value
+  const currentValRef = useRef(0);
 
   useEffect(() => {
     const duration = 400;
-    const from = currentValRef.current; // start from wherever the gauge actually is now
+    const from = currentValRef.current;
     const to   = value;
     startTimeRef.current = null;
 
@@ -57,10 +63,28 @@ export function SyntheticityGauge({
   }, [value]);
 
   const { vb, cx, cy, r, sw, numSz, labSz, labOff } = SIZE_MAP[size];
-  const circumference = 2 * Math.PI * r;
-  const arcLength     = circumference * 0.75;           // 270° de 360°
-  const dashOffset    = arcLength * (1 - displayValue / 100);
-  const color         = COLOR_MAP[getAlertLevel(displayValue, threshold)];
+  const circumference  = 2 * Math.PI * r;
+  const arcLength      = circumference * 0.75;
+  // visible dash starts at path-start (7:30 position) and grows clockwise
+  const visibleLength  = (displayValue / 100) * arcLength;
+  const alertLevel     = getAlertLevel(displayValue, threshold);
+  const color         = COLOR_MAP[alertLevel];
+  const centerLabel   = LABEL_MAP[alertLevel];
+
+  const glowRadius = 3;
+
+  // Threshold marker angle: 135° start + (threshold/100)*270°
+  const thresholdAngleDeg = 135 + (threshold / 100) * 270;
+  const thresholdAngleRad = (thresholdAngleDeg * Math.PI) / 180;
+  const innerR = r - sw / 2 - 2;
+  const outerR = r + sw / 2 + 4;
+  const tx1 = cx + innerR * Math.cos(thresholdAngleRad);
+  const ty1 = cy + innerR * Math.sin(thresholdAngleRad);
+  const tx2 = cx + outerR * Math.cos(thresholdAngleRad);
+  const ty2 = cy + outerR * Math.sin(thresholdAngleRad);
+
+  // Outer decorative ring radius
+  const outerRingR = r + sw / 2 + 10;
 
   return (
     <svg
@@ -71,7 +95,37 @@ export function SyntheticityGauge({
       aria-label={`Índice de sinteticidade: ${Math.round(displayValue)}%`}
       role="img"
     >
-      {/* Arco de fundo */}
+      <defs>
+        {/* Gradient for the arc */}
+        <linearGradient id={`gaugeGrad-${size}`} gradientUnits="userSpaceOnUse"
+          x1={cx - r} y1={cy} x2={cx + r} y2={cy}
+        >
+          <stop offset="0%"   stopColor="var(--color-safe)"   stopOpacity="0.9" />
+          <stop offset="45%"  stopColor="var(--color-warn)"   stopOpacity="0.9" />
+          <stop offset="100%" stopColor="var(--color-danger)"  stopOpacity="0.9" />
+        </linearGradient>
+
+        {/* Glow filter */}
+        <filter id={`glow-${size}`} x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation={glowRadius} result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Outer decorative dashed ring */}
+      <circle
+        cx={cx} cy={cy} r={outerRingR}
+        fill="none"
+        stroke="rgba(255,255,255,0.06)"
+        strokeWidth="1"
+        strokeDasharray="3 6"
+        transform={`rotate(135 ${cx} ${cy})`}
+      />
+
+      {/* Track arc — neutral, so it never bleeds color into the progress arc */}
       <circle
         cx={cx} cy={cy} r={r}
         fill="none"
@@ -81,49 +135,101 @@ export function SyntheticityGauge({
         strokeLinecap="round"
         transform={`rotate(135 ${cx} ${cy})`}
       />
-      {/* Arco de progresso — inicia 7h30 (135°), percorre 270° no sentido horário */}
+
+      {/* Progress arc — starts at path-start, grows clockwise */}
       <circle
         cx={cx} cy={cy} r={r}
         fill="none"
         stroke={color}
         strokeWidth={sw}
-        strokeDasharray={`${arcLength} ${circumference - arcLength}`}
-        strokeDashoffset={dashOffset}
+        strokeDasharray={`${visibleLength} ${circumference}`}
         strokeLinecap="round"
         transform={`rotate(135 ${cx} ${cy})`}
-        style={{
-          filter: `drop-shadow(0 0 6px ${color})`,
-          transition: 'stroke 250ms ease',
-        }}
+        filter={`url(#glow-${size})`}
+        style={{ transition: 'stroke 250ms ease' }}
       />
-      {/* Número central */}
+
+      {/* Threshold marker line */}
+      <line
+        x1={tx1} y1={ty1}
+        x2={tx2} y2={ty2}
+        stroke="rgba(255,255,255,0.55)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      {/* Threshold label */}
+      <text
+        x={cx + (outerRingR + 10) * Math.cos(thresholdAngleRad)}
+        y={cy + (outerRingR + 10) * Math.sin(thresholdAngleRad)}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill="rgba(255,255,255,0.3)"
+        fontFamily="'JetBrains Mono', monospace"
+        fontSize={labSz - 1}
+        fontWeight="500"
+      >
+        {threshold}%
+      </text>
+
+      {/* Center: value number */}
       <text
         x={cx}
-        y={cy - labOff / 2}
+        y={cy - labOff * 0.6}
         textAnchor="middle"
         dominantBaseline="middle"
         fill={color}
         fontFamily="'JetBrains Mono', 'Fira Code', monospace"
         fontSize={numSz}
         fontWeight="700"
-        style={{ fontVariantNumeric: 'tabular-nums' }}
+        style={{ fontVariantNumeric: 'tabular-nums', transition: 'fill 250ms ease' }}
       >
         {Math.round(displayValue)}%
       </text>
-      {/* Label "SINTETICIDADE" */}
+
+      {/* Center: "SINTETICIDADE" small label */}
       <text
         x={cx}
-        y={cy + numSz / 2 + labOff / 2 + 2}
+        y={cy + numSz * 0.42}
         textAnchor="middle"
         dominantBaseline="middle"
-        fill="rgba(255,255,255,0.35)"
+        fill="rgba(255,255,255,0.28)"
         fontFamily="'JetBrains Mono', monospace"
-        fontSize={labSz}
+        fontSize={labSz - 1}
         fontWeight="500"
-        letterSpacing="3"
+        letterSpacing="2"
       >
         SINTETICIDADE
       </text>
+
+      {/* Center: REAL / SINTÉTICO badge */}
+      {displayValue > 0 && (
+        <>
+          {/* Badge background */}
+          <rect
+            x={cx - 40}
+            y={cy + numSz * 0.42 + labOff}
+            width={80}
+            height={labSz + 6}
+            rx={4}
+            fill={color}
+            opacity="0.12"
+          />
+          <text
+            x={cx}
+            y={cy + numSz * 0.42 + labOff + (labSz + 6) / 2}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fill={color}
+            fontFamily="'JetBrains Mono', monospace"
+            fontSize={labSz}
+            fontWeight="700"
+            letterSpacing="1.5"
+            style={{ transition: 'fill 250ms ease' }}
+          >
+            {centerLabel}
+          </text>
+        </>
+      )}
     </svg>
   );
 }

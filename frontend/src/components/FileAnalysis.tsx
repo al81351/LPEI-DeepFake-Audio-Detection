@@ -6,6 +6,8 @@ import { AlertBanner }       from './AlertBanner';
 import { SpectrogramView }   from './SpectrogramView';
 import { MetricsDashboard }  from './MetricsDashboard';
 import { ArtifactScores }    from './ArtifactScores';
+import { WaveformDisplay }   from './WaveformDisplay';
+import { NeonButton }        from './ui/neon-button';
 
 const ACCEPTED_EXTS  = new Set(['.wav', '.mp3', '.flac']);
 const MAX_BYTES      = 100 * 1024 * 1024;
@@ -38,11 +40,6 @@ function LoadingSkeleton() {
       </div>
     </div>
   );
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function FileAnalysis() {
@@ -91,19 +88,32 @@ export function FileAnalysis() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Zona de drag & drop ─────────────────────────────── */}
+      {/* Section header */}
+      <div>
+        <h2
+          className="font-mono font-bold text-xl mb-1"
+          style={{ color: 'var(--color-accent)' }}
+        >
+          Análise de Ficheiro
+        </h2>
+        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          Carregue um ficheiro .wav, .mp3 ou .flac para detetar deepfake.
+        </p>
+      </div>
+
+      {/* Drop zone */}
       <div
         role="button"
         tabIndex={0}
         aria-label="Área de upload de ficheiro de áudio"
-        className="rounded-xl border-2 border-dashed transition-all duration-300 cursor-pointer"
+        className="rounded-2xl border-2 border-dashed transition-all duration-300 cursor-pointer overflow-hidden"
         style={{
-          borderColor:    isDragOver ? 'var(--color-accent)' : 'var(--glass-border)',
-          background:     isDragOver ? 'oklch(70% 0.18 250 / 0.07)' : 'var(--glass-bg)',
-          backdropFilter: 'var(--glass-blur)',
-          padding: '2.5rem 2rem',
+          borderColor:    isDragOver ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+          background:     isDragOver ? 'oklch(70% 0.18 250 / 0.06)' : 'rgba(255,255,255,0.02)',
+          backdropFilter: 'blur(12px)',
+          padding: file ? '1rem 1.25rem' : '2.5rem 2rem',
           textAlign: 'center',
-          transition: 'border-color 200ms var(--ease-out), background 200ms var(--ease-out)',
+          transition: 'border-color 200ms, background 200ms, padding 300ms',
         }}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
@@ -119,77 +129,88 @@ export function FileAnalysis() {
           onChange={handleInput}
         />
 
-        {/* Ícone upload */}
-        <div className="flex justify-center mb-4">
-          <svg
-            width="44" height="44" viewBox="0 0 24 24"
-            fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-            style={{ color: isDragOver ? 'var(--color-accent)' : 'rgba(255,255,255,0.25)', transition: 'color 200ms' }}
-          >
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
-        </div>
-
         {file ? (
-          <>
-            <div className="font-mono font-semibold" style={{ color: 'var(--color-accent)' }}>
-              {file.name}
-            </div>
-            <div className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.45)' }}>
-              {formatSize(file.size)}
-            </div>
-          </>
+          <WaveformDisplay file={file} />
         ) : (
           <>
-            <div className="font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
+            <div className="flex justify-center mb-4">
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: isDragOver ? 'oklch(70% 0.18 250 / 0.12)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${isDragOver ? 'oklch(70% 0.18 250 / 0.35)' : 'rgba(255,255,255,0.08)'}`,
+                  transition: 'all 200ms',
+                }}
+              >
+                <svg
+                  width="26" height="26" viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ color: isDragOver ? 'var(--color-accent)' : 'rgba(255,255,255,0.3)', transition: 'color 200ms' }}
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
+            </div>
+            <div className="font-medium text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
               Arraste um ficheiro ou clique para seleccionar
             </div>
-            <div className="text-sm font-mono mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+            <div className="text-xs font-mono mt-1.5" style={{ color: 'rgba(255,255,255,0.25)' }}>
               .wav · .mp3 · .flac · máx 100 MB
             </div>
           </>
         )}
       </div>
 
-      {/* Erro de validação local */}
+      {/* Validation error */}
       {fileError && (
         <div
-          className="px-4 py-3 rounded-lg text-sm"
-          style={{ background: 'rgba(255,51,102,0.09)', border: '1px solid rgba(255,51,102,0.3)', color: 'var(--color-danger)' }}
+          className="px-4 py-3 rounded-xl text-sm flex items-center gap-2"
+          style={{ background: 'rgba(255,51,102,0.08)', border: '1px solid rgba(255,51,102,0.25)', color: 'var(--color-danger)' }}
         >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
           {fileError}
         </div>
       )}
 
-      {/* ── Limiar + botão ──────────────────────────────────── */}
-      <div className="glass-card p-5 flex flex-col gap-4">
-        <ThresholdSlider
-          value={threshold}
-          onChange={setThreshold}
-          disabled={status === 'loading'}
-        />
-        <button
+      {/* Controls — slider + button in one row */}
+      <div className="glass-card p-4 flex flex-col sm:flex-row items-end gap-4">
+        <div className="flex-1 w-full">
+          <ThresholdSlider
+            value={threshold}
+            onChange={setThreshold}
+            disabled={status === 'loading'}
+          />
+        </div>
+        <NeonButton
+          variant="solid"
+          size="default"
           onClick={handleAnalyze}
           disabled={!canAnalyze}
-          className="w-full py-3 px-6 rounded-lg font-semibold text-sm uppercase tracking-widest transition-all duration-200"
+          className="font-mono font-semibold uppercase tracking-widest flex-shrink-0"
           style={{
-            background:  canAnalyze ? 'var(--color-accent)' : 'rgba(255,255,255,0.06)',
-            color:       canAnalyze ? 'oklch(10% 0.01 260)' : 'rgba(255,255,255,0.25)',
-            cursor:      canAnalyze ? 'pointer' : 'not-allowed',
-            letterSpacing: '0.1em',
-            boxShadow:   canAnalyze ? '0 0 24px oklch(70% 0.18 250 / 0.35)' : 'none',
+            opacity: canAnalyze ? 1 : 0.38,
+            cursor: canAnalyze ? 'pointer' : 'not-allowed',
           }}
         >
-          {status === 'loading' ? 'A analisar…' : 'Analisar'}
-        </button>
+          {status === 'loading' ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+              A analisar…
+            </span>
+          ) : 'Analisar'}
+        </NeonButton>
       </div>
 
-      {/* ── Estado: a carregar ─────────────────────────────── */}
+      {/* Loading state */}
       {status === 'loading' && <LoadingSkeleton />}
 
-      {/* ── Estado: erro de API ────────────────────────────── */}
+      {/* API error */}
       {status === 'error' && error && (
         <div
           className="px-5 py-4 rounded-xl flex items-start gap-3 animate-fade-in"
@@ -204,16 +225,12 @@ export function FileAnalysis() {
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           <div>
-            <div className="font-medium" style={{ color: 'var(--color-danger)' }}>
-              Erro na análise
-            </div>
-            <div className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              {error}
-            </div>
+            <div className="font-medium" style={{ color: 'var(--color-danger)' }}>Erro na análise</div>
+            <div className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>{error}</div>
             <button
               onClick={reset}
               className="mt-2 text-sm underline underline-offset-2"
-              style={{ color: 'var(--color-accent)' }}
+              style={{ color: 'var(--color-accent)', cursor: 'pointer', background: 'none', border: 'none' }}
             >
               Tentar novamente
             </button>
@@ -221,7 +238,7 @@ export function FileAnalysis() {
         </div>
       )}
 
-      {/* ── Estado: sucesso — dashboard completo ──────────── */}
+      {/* Success — full dashboard */}
       {status === 'success' && result && (
         <div className="flex flex-col gap-6 animate-slide-up">
           <AlertBanner
@@ -247,7 +264,7 @@ export function FileAnalysis() {
           <div>
             <h3
               className="text-xs font-mono font-medium uppercase tracking-widest mb-3"
-              style={{ color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}
+              style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em' }}
             >
               Espectrograma Mel
             </h3>

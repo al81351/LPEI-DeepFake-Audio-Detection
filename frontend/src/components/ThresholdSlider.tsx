@@ -1,8 +1,12 @@
+import { Slider } from '@ark-ui/react/slider';
+
 interface ThresholdSliderProps {
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;
 }
+
+const MARKERS = [0, 25, 50, 75, 100];
 
 export function ThresholdSlider({
   value,
@@ -10,45 +14,123 @@ export function ThresholdSlider({
   disabled = false,
 }: ThresholdSliderProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <label
-          className="text-xs font-mono font-medium uppercase tracking-widest"
-          style={{ color: 'rgba(255,255,255,0.5)', letterSpacing: '0.08em' }}
+    <Slider.Root
+      value={[value]}
+      min={0}
+      max={100}
+      step={1}
+      disabled={disabled}
+      onValueChange={(details) => onChange(details.value[0])}
+      style={{ width: '100%' }}
+    >
+      {/* Header row */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '14px',
+        }}
+      >
+        <Slider.Label
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '11px',
+            fontWeight: 500,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'rgba(255,255,255,0.5)',
+          }}
         >
           Limiar de Alerta
-        </label>
-        <span
-          className="font-mono text-sm font-semibold px-2 py-0.5 rounded-md tabular"
+        </Slider.Label>
+        <Slider.ValueText
           style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: 'var(--color-accent)',
             background: 'var(--glass-bg)',
             border: '1px solid var(--glass-border)',
-            color: 'var(--color-accent)',
+            borderRadius: '6px',
+            padding: '2px 8px',
           }}
         >
           {value}%
-        </span>
+        </Slider.ValueText>
       </div>
 
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        disabled={disabled}
-        aria-label={`Limiar de alerta: ${value}%`}
-      />
+      <Slider.Control>
+        <Slider.Track
+          style={{
+            height: '4px',
+            background: 'rgba(255,255,255,0.10)',
+            borderRadius: '2px',
+            position: 'relative',
+          }}
+        >
+          <Slider.Range
+            style={{
+              height: '100%',
+              background: 'var(--color-accent)',
+              borderRadius: '2px',
+              boxShadow: '0 0 8px oklch(70% 0.18 250 / 0.5)',
+            }}
+          />
+        </Slider.Track>
 
-      <div
-        className="flex justify-between text-xs font-mono"
-        style={{ color: 'rgba(255,255,255,0.25)' }}
+        <Slider.Thumb
+          index={0}
+          style={{
+            width: '16px',
+            height: '16px',
+            background: 'var(--color-accent)',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            boxShadow: '0 0 10px oklch(70% 0.18 250 / 0.6)',
+            outline: 'none',
+            transition: 'transform 150ms, box-shadow 150ms',
+            top: '50%',
+            transform: 'translateY(-50%)',
+          }}
+          onMouseEnter={(e) => {
+            if (!disabled) {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%) scale(1.25)';
+              (e.currentTarget as HTMLElement).style.boxShadow = '0 0 16px oklch(70% 0.18 250 / 0.8)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(-50%)';
+            (e.currentTarget as HTMLElement).style.boxShadow = '0 0 10px oklch(70% 0.18 250 / 0.6)';
+          }}
+        >
+          <Slider.HiddenInput />
+        </Slider.Thumb>
+      </Slider.Control>
+
+      {/* Tick marks */}
+      <Slider.MarkerGroup
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: '10px',
+        }}
       >
-        <span>0%</span>
-        <span>50%</span>
-        <span>100%</span>
-      </div>
-    </div>
+        {MARKERS.map((v) => (
+          <Slider.Marker
+            key={v}
+            value={v}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '10px',
+              color: 'rgba(255,255,255,0.25)',
+            }}
+          >
+            {v}%
+          </Slider.Marker>
+        ))}
+      </Slider.MarkerGroup>
+    </Slider.Root>
   );
 }

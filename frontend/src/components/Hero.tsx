@@ -1,225 +1,133 @@
 import { useState } from 'react';
+import { DottedSurface } from './ui/dotted-surface';
+import { HoverButton }   from './ui/hover-button';
+import { AboutModal }    from './AboutModal';
 
 interface HeroProps {
   onStartAnalysis: () => void;
 }
 
-const PIPELINE_STEPS = [
-  {
-    label: 'Áudio',
-    desc:  'Ficheiro .wav, .mp3 ou .flac — ou microfone em tempo real.',
-  },
-  {
-    label: 'Análise Acústica',
-    desc:  'Extracção de 39 coeficientes MFCC (base + deltas + delta-deltas).',
-  },
-  {
-    label: 'IA (SVM)',
-    desc:  'Classificador SVM treinado com amostras reais e sintéticas; devolve probabilidades calibradas.',
-  },
-  {
-    label: 'Índice de Sinteticidade',
-    desc:  'Probabilidade 0–100 % de o áudio ter sido gerado por IA. Acima do limiar configúrável → alerta.',
-  },
-];
-
 export function Hero({ onStartAnalysis }: HeroProps) {
-  const [showModal, setShowModal] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   return (
     <section
-      className="relative flex flex-col items-center justify-center text-center px-6 py-28 md:py-36"
-      style={{ minHeight: '100svh' }}
+      className="relative overflow-hidden"
+      style={{ minHeight: '100svh', background: 'var(--bg-base)' }}
     >
-      {/* Glow de fundo */}
+      {/* Animated dot-grid background */}
+      <DottedSurface />
+
+      {/* Radial glow — shifted left to complement left-aligned content */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 65% 45% at 50% 45%, oklch(20% 0.055 250) 0%, transparent 70%)',
+            'radial-gradient(ellipse 60% 55% at 25% 60%, oklch(16% 0.05 250) 0%, transparent 70%)',
         }}
       />
 
-      {/* Badge "SISTEMA ACTIVO" */}
+      {/* Content — anchored to bottom-left */}
+      <div className="absolute bottom-20 left-8 md:left-12 lg:left-16 z-10 max-w-xl">
+        {/* Title — white gradient, no neon blur */}
+        <h1
+          className="font-mono font-bold leading-[1.05] mb-6"
+          style={{
+            fontSize: 'clamp(2.8rem, 7vw, 5rem)',
+            letterSpacing: '-0.02em',
+            background: 'linear-gradient(160deg, #ffffff 0%, rgba(180,210,255,0.88) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}
+        >
+          Digital Voice
+          <br />
+          Shield
+        </h1>
+
+        {/* Subtitle */}
+        <p
+          className="font-mono text-sm md:text-base mb-10"
+          style={{ color: 'rgba(255,255,255,0.45)', lineHeight: 1.8, maxWidth: '26rem' }}
+        >
+          Detecção de Clonagem Vocal e Deepfakes de Áudio
+          <br />
+          com Inteligência Artificial em Tempo Real
+        </p>
+
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row items-start gap-4">
+          <HoverButton
+            onClick={onStartAnalysis}
+            className="font-mono font-semibold tracking-wide"
+            style={{ color: 'white' }}
+          >
+            Iniciar Análise
+            <svg
+              className="inline ml-2 -mr-1"
+              width="16" height="16" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round"
+            >
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </HoverButton>
+
+          <button
+            onClick={() => setShowAbout(true)}
+            className="flex items-center gap-2 px-8 py-3 rounded-full font-mono text-sm font-medium transition-all duration-200"
+            style={{
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: 'rgba(255,255,255,0.6)',
+              background: 'transparent',
+              cursor: 'pointer',
+              backdropFilter: 'blur(8px)',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.35)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.9)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.15)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.6)';
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            Saber Mais
+          </button>
+        </div>
+      </div>
+
+      {/* Scroll hint */}
       <div
-        className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-mono font-medium mb-10"
-        style={{
-          background: 'var(--glass-bg)',
-          border:     '1px solid var(--glass-border)',
-          color:      'var(--color-accent)',
-          backdropFilter: 'var(--glass-blur)',
-        }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10"
+        style={{ animation: 'scroll-bounce 2s ease-in-out infinite' }}
+        aria-hidden
       >
         <span
-          className="w-2 h-2 rounded-full"
-          style={{
-            background: 'var(--color-safe)',
-            boxShadow:  '0 0 6px var(--color-safe)',
-            animation:  'dot-blink 2s ease-in-out infinite',
-          }}
-        />
-        SISTEMA ACTIVO
-      </div>
-
-      {/* Título principal */}
-      <h1
-        className="font-mono font-bold leading-none mb-6 neon-text animate-neon-pulse"
-        style={{ fontSize: 'clamp(2.5rem, 8vw, 5rem)', letterSpacing: '-0.02em' }}
-      >
-        Digital Voice
-        <br />
-        Shield
-      </h1>
-
-      {/* Subtítulo */}
-      <p
-        className="font-mono text-sm md:text-base mb-10 max-w-lg"
-        style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.75 }}
-      >
-        Detecção de Clonagem Vocal e Deepfakes de Áudio em Tempo Real
-      </p>
-
-      {/* Pipeline — steps compactos */}
-      <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-center mb-3">
-        {PIPELINE_STEPS.map((step, i) => (
-          <div key={step.label} className="flex items-center gap-1.5 md:gap-2">
-            <div
-              className="px-3 py-1.5 rounded-lg text-xs font-mono font-medium"
-              style={{
-                background:     'var(--glass-bg)',
-                border:         '1px solid var(--glass-border)',
-                color:          'rgba(255,255,255,0.65)',
-                backdropFilter: 'var(--glass-blur)',
-                whiteSpace:     'nowrap',
-              }}
-            >
-              {step.label}
-            </div>
-            {i < PIPELINE_STEPS.length - 1 && (
-              <svg
-                width="14" height="14" viewBox="0 0 24 24"
-                fill="none" stroke="var(--color-accent)" strokeWidth="2.5"
-                strokeLinecap="round" strokeLinejoin="round"
-                style={{ opacity: 0.45, flexShrink: 0 }}
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Botão "Saber mais" */}
-      <button
-        onClick={() => setShowModal(true)}
-        className="mb-10 text-xs font-mono underline underline-offset-2 transition-opacity duration-150 hover:opacity-100"
-        style={{ color: 'rgba(255,255,255,0.32)', opacity: 0.75 }}
-      >
-        Saber mais sobre o pipeline
-      </button>
-
-      {/* Estatística de destaque */}
-      <div
-        className="px-6 py-4 rounded-xl mb-12 text-sm font-mono max-w-md"
-        style={{
-          background:     'var(--glass-bg)',
-          border:         '1px solid var(--glass-border)',
-          backdropFilter: 'var(--glass-blur)',
-          color:          'rgba(255,255,255,0.55)',
-          lineHeight:     1.65,
-        }}
-      >
-        <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}>
-          Detecta artefactos de síntese
-        </span>{' '}
-        imperceptíveis ao ouvido humano — sobre-suavização, periodicidade
-        artificial e descontinuidades espectrais.
-      </div>
-
-      {/* CTA */}
-      <button
-        onClick={onStartAnalysis}
-        className="px-10 py-4 rounded-xl font-bold text-base uppercase transition-all duration-200"
-        style={{
-          background:    'var(--color-accent)',
-          color:         'oklch(10% 0.01 260)',
-          letterSpacing: '0.12em',
-          boxShadow:     '0 0 36px oklch(70% 0.18 250 / 0.45)',
-          cursor:        'pointer',
-        }}
-      >
-        Começar Análise
-      </button>
-
-      {/* ── Modal: pipeline detalhado ──────────────────────── */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
-          onClick={() => setShowModal(false)}
+          className="text-xs font-mono tracking-widest"
+          style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}
         >
-          <div
-            className="glass-card p-8 w-full max-w-lg text-left animate-slide-up"
-            style={{ background: 'var(--bg-elevated)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2
-              className="font-mono font-bold text-xl mb-6"
-              style={{ color: 'var(--color-accent)' }}
-            >
-              Pipeline de Detecção
-            </h2>
+          SCROLL
+        </span>
+        <svg
+          width="20" height="20" viewBox="0 0 24 24"
+          fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </div>
 
-            <ol className="flex flex-col gap-5">
-              {PIPELINE_STEPS.map((step, i) => (
-                <li key={step.label} className="flex items-start gap-4">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center font-mono font-bold text-sm flex-shrink-0"
-                    style={{
-                      background: 'oklch(70% 0.18 250 / 0.12)',
-                      border:     '1px solid oklch(70% 0.18 250 / 0.3)',
-                      color:      'var(--color-accent)',
-                    }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div>
-                    <div className="font-mono font-semibold" style={{ color: 'var(--color-accent)' }}>
-                      {step.label}
-                    </div>
-                    <div className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                      {step.desc}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
-
-            <div
-              className="mt-6 pt-5 text-xs font-mono"
-              style={{ borderTop: '1px solid var(--glass-border)', color: 'rgba(255,255,255,0.3)', lineHeight: 1.75 }}
-            >
-              Modelo treinado com o dataset LJSpeech (real) e amostras TTS/VC (sintético).
-              Latência de análise de ficheiro: tipicamente &lt; 2 s.
-              Latência em tempo real: ≤ 200 ms por chunk (RNF-01).
-            </div>
-
-            <button
-              onClick={() => setShowModal(false)}
-              className="mt-4 w-full py-2.5 rounded-lg text-sm font-medium transition-colors duration-150"
-              style={{
-                background: 'var(--glass-bg)',
-                border:     '1px solid var(--glass-border)',
-                color:      'rgba(255,255,255,0.55)',
-                cursor:     'pointer',
-              }}
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
+      {/* About modal */}
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
     </section>
   );
 }

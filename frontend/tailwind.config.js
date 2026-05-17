@@ -1,8 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  content: ['./index.html', './src/**/*.{ts,tsx}', './src/components/ui/**/*.tsx'],
   theme: {
     extend: {
+      colors: {
+        foreground: 'oklch(90% 0.005 260)',
+        'blue-500':  '#3b82f6',
+        'blue-600':  '#2563eb',
+      },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
