@@ -41,17 +41,31 @@ export interface AnalysisResult {
   timestamp: string;
 }
 
-export interface RealtimeUpdate {
+export interface RealtimeTick {
+  type: 'tick';
+  buffer_seconds: number;
+  rms_energy: number;
+}
+
+export interface RealtimeProbe {
+  type: 'probe';
+  probe_id: string;
   syntheticity_index: number;
   label: 'real' | 'synthetic';
   confidence: number;
   is_alert: boolean;
-  buffer_seconds: number;
-  realtime_metrics: {
+  latency_ms: number;
+  timestamp: string;
+  metrics: {
     rms_energy: number;
     zero_crossing_rate: number;
+    over_smoothing_score: number;
+    artificial_periodicity_score: number;
+    spectral_discontinuity_score: number;
   };
 }
+
+export type RealtimeMessage = RealtimeTick | RealtimeProbe;
 
 // O backend também devolve confidence e is_alert na HistoryEntry
 export interface HistoryEntry {

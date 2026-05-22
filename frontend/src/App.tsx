@@ -52,7 +52,7 @@ function HistoryView() {
           Histórico da Sessão
         </h2>
         <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Análises realizadas durante esta sessão do servidor.
+          Análises realizadas de ficheiros de áudio durante esta sessão do servidor.
         </p>
       </div>
       <AnalysisHistory />

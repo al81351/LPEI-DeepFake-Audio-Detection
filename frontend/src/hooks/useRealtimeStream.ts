@@ -1,20 +1,25 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { RealtimeUpdate, RealtimeStatus } from '../types/analysis';
+import type { RealtimeTick, RealtimeProbe, RealtimeStatus } from '../types/analysis';
 import { createWebSocketStream } from '../services/websocket';
 import type { WSController } from '../services/websocket';
 
 interface UseRealtimeStreamReturn {
-  update: RealtimeUpdate | null;
+  tick: RealtimeTick | null;
+  latestProbe: RealtimeProbe | null;
+  probes: RealtimeProbe[];
   status: RealtimeStatus;
   error: string | null;
   startCapture: (threshold: number) => Promise<void>;
   stopCapture: () => void;
+  clearProbes: () => void;
 }
 
 export function useRealtimeStream(): UseRealtimeStreamReturn {
-  const [update, setUpdate] = useState<RealtimeUpdate | null>(null);
-  const [status, setStatus] = useState<RealtimeStatus>('idle');
-  const [error, setError]   = useState<string | null>(null);
+  const [tick, setTick]               = useState<RealtimeTick | null>(null);
+  const [latestProbe, setLatestProbe] = useState<RealtimeProbe | null>(null);
+  const [probes, setProbes]           = useState<RealtimeProbe[]>([]);
+  const [status, setStatus]           = useState<RealtimeStatus>('idle');
+  const [error, setError]             = useState<string | null>(null);
 
   const wsRef        = useRef<WSController | null>(null);
   const contextRef   = useRef<AudioContext | null>(null);
@@ -35,7 +40,13 @@ export function useRealtimeStream(): UseRealtimeStreamReturn {
     wsRef.current = null;
 
     setStatus('idle');
-    setUpdate(null);
+    setTick(null);
+    setLatestProbe(null);
+    setProbes([]);
+  }, []);
+
+  const clearProbes = useCallback(() => {
+    setProbes([]);
   }, []);
 
   const startCapture = useCallback(async (threshold: number) => {
@@ -57,17 +68,23 @@ export function useRealtimeStream(): UseRealtimeStreamReturn {
 
       const ws = createWebSocketStream(
         { sampleRate: SAMPLE_RATE, threshold },
-        (data) => setUpdate(data),
         (msg) => {
-          stopCapture();      // limpa recursos e define status='idle'
-          setError(msg);      // guarda mensagem de erro
-          setStatus('error'); // sobrepõe status para mostrar erro
+          if (msg.type === 'tick') {
+            setTick(msg);
+          } else if (msg.type === 'probe') {
+            setLatestProbe(msg);
+            setProbes(prev => [msg, ...prev]);
+          }
+        },
+        (msg) => {
+          stopCapture();
+          setError(msg);
+          setStatus('error');
         },
       );
       wsRef.current = ws;
 
       const source    = context.createMediaStreamSource(stream);
-      // ScriptProcessorNode (deprecated mas de suporte universal)
       const processor = context.createScriptProcessor(2048, 1, 1);
       processorRef.current = processor;
 
@@ -77,7 +94,6 @@ export function useRealtimeStream(): UseRealtimeStreamReturn {
       };
 
       source.connect(processor);
-      // Ligação ao destination necessária para o callback disparar
       processor.connect(context.destination);
 
       setStatus('capturing');
@@ -91,5 +107,5 @@ export function useRealtimeStream(): UseRealtimeStreamReturn {
     return () => { stopCapture(); };
   }, [stopCapture]);
 
-  return { update, status, error, startCapture, stopCapture };
+  return { tick, latestProbe, probes, status, error, startCapture, stopCapture, clearProbes };
 }

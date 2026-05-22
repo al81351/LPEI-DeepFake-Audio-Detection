@@ -1,162 +1,272 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useRealtimeStream } from '../hooks/useRealtimeStream';
-import { SyntheticityGauge } from './SyntheticityGauge';
-import { ThresholdSlider }   from './ThresholdSlider';
-import { VoiceInput }        from './ui/voice-input';
+import { SyntheticityGauge }  from './SyntheticityGauge';
+import { ThresholdSlider }    from './ThresholdSlider';
+import { RealtimeProbeLog }   from './RealtimeProbeLog';
+import { VoicePoweredOrb }    from './ui/voice-powered-orb';
+import type { RealtimeProbe } from '../types/analysis';
 
-function MiniCard({ label, value }: { label: string; value: string }) {
+// ─── Recent probe row ─────────────────────────────────────────────────────────
+
+function RecentProbeRow({ probe }: { probe: RealtimeProbe }) {
+  const isHuman = probe.label === 'real';
+  const time = new Date(probe.timestamp).toLocaleTimeString('pt-PT', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+
   return (
-    <div className="glass-card p-4">
+    <div
+      className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+      style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
+    >
       <div
-        className="text-xs uppercase tracking-widest font-mono mb-1.5"
-        style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '0.07em' }}
+        className="w-2 h-2 rounded-full flex-shrink-0"
+        style={{ background: isHuman ? 'var(--color-safe)' : 'var(--color-danger)' }}
+      />
+      <span className="font-mono text-xs truncate" style={{ color: 'rgba(255,255,255,0.55)' }}>
+        {probe.probe_id}
+      </span>
+      <span className="font-mono text-xs flex-shrink-0" style={{ color: 'rgba(255,255,255,0.25)' }}>
+        {time}
+      </span>
+      <span
+        className="font-mono text-xs font-semibold ml-auto flex-shrink-0"
+        style={{ color: isHuman ? 'var(--color-safe)' : 'var(--color-danger)' }}
       >
-        {label}
-      </div>
-      <div
-        className="font-mono text-2xl font-bold tabular"
-        style={{ color: 'var(--color-accent)' }}
-      >
-        {value}
-      </div>
+        {isHuman ? 'HUMANO' : 'SINTÉTICO'}
+      </span>
+      <span className="font-mono text-xs tabular flex-shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>
+        {probe.syntheticity_index.toFixed(1)}%
+      </span>
     </div>
   );
 }
 
-const EMA_ALPHA = 0.3;
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function RealtimeAnalysis() {
-  const [threshold, setThreshold]               = useState(50);
-  const { update, status, error, startCapture, stopCapture } = useRealtimeStream();
+  const [threshold, setThreshold] = useState(50);
+  const [showLogs, setShowLogs]   = useState(false);
 
-  const [smoothedIndex, setSmoothedIndex] = useState(0);
-  const emaRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!update) {
-      emaRef.current = null;
-      setSmoothedIndex(0);
-      return;
-    }
-    const raw = update.syntheticity_index;
-    const ema = emaRef.current === null
-      ? raw
-      : EMA_ALPHA * raw + (1 - EMA_ALPHA) * emaRef.current;
-    emaRef.current = ema;
-    setSmoothedIndex(ema);
-  }, [update]);
+  const {
+    tick, latestProbe, probes,
+    status, error,
+    startCapture, stopCapture, clearProbes,
+  } = useRealtimeStream();
 
   const isCapturing = status === 'capturing';
-  const isAlert     = smoothedIndex >= threshold;
+  const isAlert     = (latestProbe?.syntheticity_index ?? 0) >= threshold;
+  const recentProbes = probes.slice(0, 3);
 
-  const statusCfg = (() => {
-    if (status === 'idle')  return { label: 'Inativo',       color: 'rgba(255,255,255,0.35)', dotColor: 'rgba(255,255,255,0.2)',  dotAnim: undefined };
-    if (status === 'error') return { label: 'Erro',          color: 'var(--color-danger)',    dotColor: 'var(--color-danger)',     dotAnim: undefined };
-    if (isAlert)            return { label: 'Alerta Activo', color: 'var(--color-danger)',    dotColor: 'var(--color-danger)',     dotAnim: 'border-pulse 1.5s ease-in-out infinite' };
-    return                         { label: 'A Capturar',   color: 'var(--color-safe)',      dotColor: 'var(--color-safe)',       dotAnim: 'capture-pulse 2s ease-in-out infinite' };
+  // Drive the orb with RMS energy from the WebSocket tick (no second mic needed)
+  const orbAudioLevel = isCapturing
+    ? Math.max(0.12, Math.min((tick?.rms_energy ?? 0) * 18, 1))
+    : undefined;
+
+  const authLabel = (() => {
+    if (!latestProbe) return null;
+    return latestProbe.label === 'real'
+      ? { text: 'Humano',   bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.25)',  color: 'var(--color-safe)'   }
+      : { text: 'Sintético', bg: 'rgba(255,51,102,0.12)', border: 'rgba(255,51,102,0.25)', color: 'var(--color-danger)' };
   })();
 
+  const handleStartStop = () => {
+    if (isCapturing) stopCapture();
+    else void startCapture(threshold);
+  };
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Section header */}
-      <div>
-        <h2
-          className="font-mono font-bold text-xl mb-1"
-          style={{ color: 'var(--color-accent)' }}
-        >
-          Análise em Tempo Real
-        </h2>
-        <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          Captura contínua via microfone com latência ≤ 200 ms.
-        </p>
-      </div>
-
-      {/* Status indicator + VoiceInput control */}
-      <div className="glass-card p-4 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-3 h-3 rounded-full flex-shrink-0"
-            style={{
-              background: statusCfg.dotColor,
-              boxShadow:  isCapturing ? `0 0 8px ${statusCfg.dotColor}` : 'none',
-              animation:  statusCfg.dotAnim,
-            }}
-          />
-          <span className="font-mono font-medium text-sm" style={{ color: statusCfg.color }}>
-            {statusCfg.label}
-          </span>
-        </div>
-
-        <VoiceInput
-          isActive={isCapturing}
-          onStart={() => void startCapture(threshold)}
-          onStop={() => stopCapture()}
+    <>
+      {showLogs && (
+        <RealtimeProbeLog
+          probes={probes}
+          onClose={() => setShowLogs(false)}
+          onClear={clearProbes}
         />
-      </div>
-
-      {/* Microphone/WebSocket error */}
-      {status === 'error' && error && (
-        <div
-          className="px-4 py-3 rounded-xl text-sm animate-fade-in"
-          style={{ background: 'rgba(255,51,102,0.08)', border: '1px solid rgba(255,51,102,0.25)', color: 'var(--color-danger)' }}
-        >
-          {error}
-        </div>
       )}
 
-      {/* Central gauge */}
-      <div className="flex flex-col items-center py-2">
-        <SyntheticityGauge
-          value={smoothedIndex}
-          threshold={threshold}
-          size="lg"
-        />
-        {update && (
+      <div className="flex flex-col gap-5">
+        {/* Section header */}
+        <div>
+          <h2 className="font-mono font-bold text-xl mb-1" style={{ color: 'var(--color-accent)' }}>
+            Análise em Tempo Real
+          </h2>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
+            Probes independentes de 3 s com análise completa de artefactos.
+          </p>
+        </div>
+
+        {/* Error banner */}
+        {status === 'error' && error && (
           <div
-            className="mt-2 font-mono text-sm tabular"
-            style={{ color: 'rgba(255,255,255,0.35)' }}
+            className="px-4 py-3 rounded-xl text-sm animate-fade-in"
+            style={{ background: 'rgba(255,51,102,0.08)', border: '1px solid rgba(255,51,102,0.25)', color: 'var(--color-danger)' }}
           >
-            buffer: {update.buffer_seconds.toFixed(2)}s
+            {error}
           </div>
         )}
-      </div>
 
-      {/* Mini metric cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <MiniCard
-          label="Energia RMS"
-          value={update?.realtime_metrics.rms_energy.toFixed(4) ?? '—'}
-        />
-        <MiniCard
-          label="Taxa Zero-Crossing"
-          value={update?.realtime_metrics.zero_crossing_rate.toFixed(4) ?? '—'}
-        />
-      </div>
+        {/* Main two-column panel */}
+        <div className="glass-card p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-      {/* Threshold slider */}
-      <div className="glass-card p-4">
-        <ThresholdSlider
-          value={threshold}
-          onChange={setThreshold}
-          disabled={isCapturing}
-        />
-        {isCapturing && (
-          <p
-            className="text-xs font-mono mt-3"
-            style={{ color: 'rgba(255,255,255,0.28)' }}
+          {/* ── Left column: socket info + orb + start/stop ── */}
+          <div className="flex flex-col items-center gap-4">
+
+            {/* Socket status + latency — inside the card, above the orb */}
+            <div className="w-full flex items-center justify-between">
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                style={{
+                  background: isCapturing ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${isCapturing ? 'rgba(34,197,94,0.28)' : 'rgba(255,255,255,0.09)'}`,
+                }}
+              >
+                <div
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{
+                    background: isCapturing ? 'var(--color-safe)' : 'rgba(255,255,255,0.2)',
+                    boxShadow: isCapturing ? '0 0 5px var(--color-safe)' : 'none',
+                    animation: isCapturing ? 'capture-pulse 2s ease-in-out infinite' : 'none',
+                  }}
+                />
+                <span className="font-mono text-xs font-medium" style={{ color: isCapturing ? 'var(--color-safe)' : 'rgba(255,255,255,0.3)' }}>
+                  {isCapturing ? 'SOCKET ATIVO' : 'SOCKET INATIVO'}
+                </span>
+              </div>
+
+              <div className="text-right">
+                <div className="font-mono text-xs uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.2)' }}>
+                  LATÊNCIA
+                </div>
+                <div
+                  className="font-mono text-sm font-bold tabular leading-tight"
+                  style={{ color: latestProbe ? 'var(--color-safe)' : 'rgba(255,255,255,0.2)' }}
+                >
+                  {latestProbe ? `${latestProbe.latency_ms} ms` : '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* WebGL Orb */}
+            <div style={{ width: 200, height: 200 }}>
+              <VoicePoweredOrb
+                audioLevel={orbAudioLevel}
+                enableVoiceControl={false}
+                hue={0}
+                maxRotationSpeed={1.2}
+                maxHoverIntensity={0.8}
+              />
+            </div>
+
+            {/* Start / Stop button — directly below the orb */}
+            <button
+              onClick={handleStartStop}
+              className="flex items-center gap-2.5 px-7 py-3 rounded-full font-mono font-semibold text-sm transition-all duration-300"
+              style={isCapturing ? {
+                background:  'rgba(255,51,102,0.12)',
+                border:      '1px solid rgba(255,51,102,0.32)',
+                color:       'var(--color-danger)',
+                boxShadow:   '0 0 18px rgba(255,51,102,0.18)',
+              } : {
+                background:  'rgba(34,197,94,0.12)',
+                border:      '1px solid rgba(34,197,94,0.32)',
+                color:       'var(--color-safe)',
+                boxShadow:   '0 0 18px rgba(34,197,94,0.12)',
+              }}
+            >
+              {isCapturing ? (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="4" y="4" width="16" height="16" rx="2" />
+                  </svg>
+                  Parar Captura
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="12" cy="12" r="7" />
+                  </svg>
+                  Iniciar Captura
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* ── Right column: gauge + verdict ── */}
+          <div className="flex flex-col items-center gap-4">
+            <div className="font-mono text-xs uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.22)' }}>
+              ÍNDICE DE SINTETICIDADE
+            </div>
+
+            <SyntheticityGauge
+              value={latestProbe?.syntheticity_index ?? 0}
+              threshold={threshold}
+              size="md"
+            />
+
+            {authLabel ? (
+              <div
+                className="w-full text-center py-3 rounded-xl font-mono font-bold text-base animate-fade-in"
+                style={{ background: authLabel.bg, border: `1px solid ${authLabel.border}`, color: authLabel.color }}
+              >
+                {authLabel.text}
+              </div>
+            ) : (
+              <div
+                className="w-full text-center py-3 rounded-xl font-mono text-sm"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.18)' }}
+              >
+                Aguardando primeiro probe...
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Threshold slider */}
+        <div className="glass-card p-5 flex flex-col gap-3">
+          <ThresholdSlider
+            value={threshold}
+            onChange={setThreshold}
+            disabled={isCapturing}
+          />
+          {isCapturing && (
+            <p className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Altere o limiar após parar a captura.
+            </p>
+          )}
+        </div>
+
+        {/* Recent Probes */}
+        <div className="glass-card p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-mono text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              Probes Recentes
+            </h3>
+            <span className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.22)' }}>
+              {probes.length} total
+            </span>
+          </div>
+
+          {recentProbes.length === 0 ? (
+            <div className="py-4 text-center font-mono text-sm" style={{ color: 'rgba(255,255,255,0.15)' }}>
+              Aguardando probes...
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {recentProbes.map(p => <RecentProbeRow key={p.probe_id} probe={p} />)}
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowLogs(true)}
+            className="font-mono text-xs mt-1 text-left transition-opacity"
+            style={{ color: 'var(--color-accent)', opacity: probes.length > 0 ? 0.8 : 0.35, cursor: probes.length > 0 ? 'pointer' : 'default' }}
           >
-            Altere o limiar após parar a captura.
-          </p>
-        )}
+            Ver Logs Forenses Completos →
+          </button>
+        </div>
       </div>
-
-      <p
-        className="text-xs text-center font-mono px-4"
-        style={{ color: 'rgba(255,255,255,0.2)', lineHeight: 1.7 }}
-      >
-        Espectrograma e artefactos detalhados não estão disponíveis em tempo real
-        para garantir latência ≤ 200 ms (RNF-01).
-      </p>
-    </div>
+    </>
   );
 }

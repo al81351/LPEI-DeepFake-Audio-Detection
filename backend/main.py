@@ -2,8 +2,11 @@
 
 import json
 import os
+import random
+import secrets
 import uuid
 import tempfile
+import time
 from datetime import datetime, timezone
 
 import librosa
@@ -379,26 +382,53 @@ async def analyze_stream(websocket: WebSocket) -> None:
 
         processor.push_chunk(chunk)
 
-        if processor.should_analyze():
-            window = processor.get_window()
+        # Probe every 3 s — full SVM + artifact analysis on the complete window
+        if processor.should_probe():
+            t_start = time.perf_counter()
+            window = processor.get_probe_window()
             result = detector.analyze_chunk(window, processor.sample_rate)
+            artifact_result = _artifact_analyzer.analyze(window, processor.sample_rate)
+            latency_ms = round((time.perf_counter() - t_start) * 1000, 1)
+
             is_alert = detector.is_above_threshold(result, threshold=threshold)
-            rms_energy = round(float(np.sqrt(np.mean(window ** 2))), 4)
-            zero_crossing_rate = round(
-                float(np.mean(librosa.feature.zero_crossing_rate(window))), 4
-            )
+            probe_id = f"PROBE-{secrets.token_hex(2).upper()}-{random.randint(1000, 9999)}"
+            timestamp = datetime.now(timezone.utc).isoformat()
+
+            rms = round(float(np.sqrt(np.mean(window ** 2))), 4)
+            zcr = round(float(np.mean(librosa.feature.zero_crossing_rate(window))), 4)
+
             await websocket.send_text(
                 json.dumps(
                     {
+                        "type": "probe",
+                        "probe_id": probe_id,
                         "syntheticity_index": round(result["syntheticity_index"], 2),
                         "label": result["label"],
                         "confidence": round(result["confidence"], 2),
                         "is_alert": is_alert,
-                        "buffer_seconds": round(processor.buffer_seconds, 3),
-                        "realtime_metrics": {
-                            "rms_energy": rms_energy,
-                            "zero_crossing_rate": zero_crossing_rate,
+                        "latency_ms": latency_ms,
+                        "timestamp": timestamp,
+                        "metrics": {
+                            "rms_energy": rms,
+                            "zero_crossing_rate": zcr,
+                            "over_smoothing_score": artifact_result["artifacts"]["over_smoothing_score"],
+                            "artificial_periodicity_score": artifact_result["artifacts"]["artificial_periodicity_score"],
+                            "spectral_discontinuity_score": artifact_result["artifacts"]["spectral_discontinuity_score"],
                         },
+                    }
+                )
+            )
+            return  # probe sent — skip tick for this frame
+
+        # Tick every 200 ms — cheap buffer indicator for the waveform animation
+        if processor.should_tick():
+            buf_sec, rms = processor.get_tick_data()
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "tick",
+                        "buffer_seconds": round(buf_sec, 3),
+                        "rms_energy": rms,
                     }
                 )
             )

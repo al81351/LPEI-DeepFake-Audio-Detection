@@ -1,4 +1,4 @@
-import type { RealtimeUpdate } from '../types/analysis';
+import type { RealtimeMessage } from '../types/analysis';
 
 const WS_URL = `ws://${window.location.host}/analyze-stream`;
 
@@ -15,7 +15,7 @@ export interface WSController {
 
 export function createWebSocketStream(
   config: WSConfig,
-  onUpdate: (data: RealtimeUpdate) => void,
+  onMessage: (msg: RealtimeMessage) => void,
   onError: (msg: string) => void,
 ): WSController {
   const ws = new WebSocket(WS_URL);
@@ -35,7 +35,7 @@ export function createWebSocketStream(
       if (data['error']) {
         onError(String(data['error']));
       } else {
-        onUpdate(data as unknown as RealtimeUpdate);
+        onMessage(data as unknown as RealtimeMessage);
       }
     } catch {
       onError('Resposta inválida do servidor');
