@@ -393,6 +393,15 @@ async def analyze_stream(websocket: WebSocket) -> None:
         if processor.should_probe():
             t_start = time.perf_counter()
             window = processor.get_probe_window()
+
+            # Energy gate — skip probe for near-silent windows (background noise,
+            # microphone idle, or audio played too quietly).  The counters are
+            # already reset by get_probe_window(), so we simply drop the probe and
+            # wait for the next 3-second window.
+            window_rms = float(np.sqrt(np.mean(window ** 2)))
+            if window_rms < 2e-3:  # ≈ −54 dBFS — adjust if too aggressive
+                return
+
             result = detector.analyze_chunk(window, processor.sample_rate)
             artifact_result = _artifact_analyzer.analyze(window, processor.sample_rate)
             latency_ms = round((time.perf_counter() - t_start) * 1000, 1)

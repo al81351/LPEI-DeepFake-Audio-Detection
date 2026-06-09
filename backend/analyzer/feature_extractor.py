@@ -99,6 +99,19 @@ class FeatureExtractor:
         Returns:
             np.ndarray: A 1D array of shape (48,) ready for the SVM classifier.
         """
+        # ── Amplitude normalisation ───────────────────────────────────────────
+        # Peak-normalise to [-1, 1] so that MFCC energy coefficients are
+        # consistent regardless of recording level.  Audio files decoded by
+        # librosa are already close to this range; microphone captures via
+        # WebAudio can be 10–100× quieter (OS gain), causing a large shift in
+        # MFCC[0] (energy) that pushes the feature vector away from the
+        # training distribution and biases the SVM towards "real".
+        # Applying this uniformly during both training AND inference ensures
+        # the scaler is fitted and applied on the same amplitude scale.
+        peak = float(np.max(np.abs(signal)))
+        if peak > 1e-8:
+            signal = signal / peak
+
         # ── MFCCs ────────────────────────────────────────────────────────────
         mfccs   = librosa.feature.mfcc(y=signal, sr=sample_rate, n_mfcc=n_mfccs)
         d_mfcc  = librosa.feature.delta(mfccs)
