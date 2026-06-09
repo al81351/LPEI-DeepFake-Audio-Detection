@@ -75,6 +75,7 @@ export interface HistoryEntry {
   label: string;
   confidence: number;
   is_alert: boolean;
+  threshold_used: number;
   timestamp: string;
 }
 

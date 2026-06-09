@@ -58,6 +58,7 @@ class HistoryEntry(BaseModel):
     label: str
     confidence: float
     is_alert: bool
+    threshold_used: float
     metrics: dict
     timestamp: str
 
@@ -211,13 +212,19 @@ async def analyze_audio(
         "frequencies": spectrogram_raw["frequencies"].tolist(),
     }
 
+    # Derive the label from the user-configured threshold, not the model's
+    # internal default (which is always 50 %).  This ensures the history and
+    # the returned result are consistent with the gauge / is_alert flag.
+    threshold_label = "synthetic" if detection["syntheticity_index"] >= threshold else "real"
+
     entry = HistoryEntry(
         id=str(uuid.uuid4()),
         file_name=file.filename or "unknown",
         syntheticity_index=detection["syntheticity_index"],
-        label=detection["label"],
+        label=threshold_label,
         confidence=detection["confidence"],
         is_alert=is_alert,
+        threshold_used=threshold,
         metrics=metrics,
         timestamp=timestamp,
     )
@@ -225,7 +232,7 @@ async def analyze_audio(
 
     return AnalysisResult(
         syntheticity_index=detection["syntheticity_index"],
-        label=detection["label"],
+        label=threshold_label,
         confidence=detection["confidence"],
         is_alert=is_alert,
         threshold_used=threshold,
@@ -391,6 +398,9 @@ async def analyze_stream(websocket: WebSocket) -> None:
             latency_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
             is_alert = detector.is_above_threshold(result, threshold=threshold)
+            # Use the user-configured threshold to derive the label, not the
+            # model's internal default (50 %).
+            probe_label = "synthetic" if result["syntheticity_index"] >= threshold else "real"
             probe_id = f"PROBE-{secrets.token_hex(2).upper()}-{random.randint(1000, 9999)}"
             timestamp = datetime.now(timezone.utc).isoformat()
 
@@ -403,7 +413,7 @@ async def analyze_stream(websocket: WebSocket) -> None:
                         "type": "probe",
                         "probe_id": probe_id,
                         "syntheticity_index": round(result["syntheticity_index"], 2),
-                        "label": result["label"],
+                        "label": probe_label,
                         "confidence": round(result["confidence"], 2),
                         "is_alert": is_alert,
                         "latency_ms": latency_ms,

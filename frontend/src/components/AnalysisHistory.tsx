@@ -28,7 +28,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Tooltip
   if (!active || !payload?.length) return null;
   const entry = payload[0]?.payload;
   if (!entry) return null;
-  const isSynth = entry.label === 'synthetic';
+  const isSynth = entry.is_alert;
   return (
     <div
       className="glass-card px-3 py-2 text-sm"
@@ -39,6 +39,9 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Tooltip
       </div>
       <div style={{ color: 'rgba(255,255,255,0.65)' }}>
         Índice: {entry.syntheticity_index.toFixed(1)}%
+      </div>
+      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem' }}>
+        Limiar: {entry.threshold_used ?? 50}%
       </div>
       <div style={{ color: isSynth ? 'var(--color-danger)' : 'var(--color-safe)' }}>
         {isSynth ? 'Sintético' : 'Real'}
@@ -139,17 +142,21 @@ export function AnalysisHistory() {
               stroke="rgba(255,255,255,0.08)"
             />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-            <ReferenceLine
-              y={50}
-              stroke="rgba(255,183,0,0.45)"
-              strokeDasharray="5 4"
-              label={{ value: 'Limiar 50%', fill: 'rgba(255,183,0,0.55)', fontSize: 10, fontFamily: 'monospace' }}
-            />
+            {/* Reference lines per unique threshold value used across analyses */}
+            {Array.from(new Set(chartData.map(e => e.threshold_used ?? 50))).map(thr => (
+              <ReferenceLine
+                key={thr}
+                y={thr}
+                stroke="rgba(255,183,0,0.45)"
+                strokeDasharray="5 4"
+                label={{ value: `Limiar ${thr}%`, fill: 'rgba(255,183,0,0.55)', fontSize: 10, fontFamily: 'monospace' }}
+              />
+            ))}
             <Bar dataKey="syntheticity_index" radius={[4, 4, 0, 0]} maxBarSize={48}>
               {chartData.map((entry, i) => (
                 <Cell
                   key={i}
-                  fill={entry.label === 'synthetic' ? 'var(--color-danger)' : 'var(--color-safe)'}
+                  fill={entry.is_alert ? 'var(--color-danger)' : 'var(--color-safe)'}
                 />
               ))}
             </Bar>
@@ -176,7 +183,7 @@ export function AnalysisHistory() {
             </thead>
             <tbody>
               {history.map((entry, i) => {
-                const isSynth = entry.label === 'synthetic';
+                const isSynth = entry.is_alert;
                 return (
                   <tr
                     key={entry.id}

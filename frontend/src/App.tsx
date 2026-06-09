@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState }        from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { Hero }             from './components/Hero';
 import { Sidebar }          from './components/Sidebar';
 import { FileAnalysis }     from './components/FileAnalysis';
@@ -7,36 +8,35 @@ import { AnalysisHistory }  from './components/AnalysisHistory';
 
 type View = 'file' | 'realtime' | 'history';
 
-export function App() {
-  const [view, setView] = useState<View>('file');
-  const appSectionRef   = useRef<HTMLDivElement>(null);
-
-  const handleStartAnalysis = () => {
-    appSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+// ── / ────────────────────────────────────────────────────────────────────────
+function HeroPage() {
+  const navigate = useNavigate();
   return (
     <div style={{ background: 'var(--bg-base)', minHeight: '100vh' }}>
-      {/* Hero — full viewport */}
-      <Hero onStartAnalysis={handleStartAnalysis} />
+      <Hero onStartAnalysis={() => navigate('/dashboard')} />
+    </div>
+  );
+}
 
-      {/* App: sidebar + content */}
-      <div
-        id="app"
-        ref={appSectionRef}
-        className="flex flex-col lg:flex-row"
-        style={{ minHeight: '100vh', borderTop: '1px solid var(--glass-border)' }}
-      >
-        <Sidebar view={view} onViewChange={setView} />
+// ── /dashboard ───────────────────────────────────────────────────────────────
+function DashboardPage() {
+  const [view, setView] = useState<View>('file');
 
-        <main className="flex-1 min-w-0 px-6 py-10 md:px-10 md:py-12">
-          <div key={view} className="animate-fade-in max-w-4xl">
-            {view === 'file'     && <FileAnalysis />}
-            {view === 'realtime' && <RealtimeAnalysis />}
-            {view === 'history'  && <HistoryView />}
-          </div>
-        </main>
-      </div>
+  return (
+    <div
+      className="flex flex-col lg:flex-row"
+      style={{ background: 'var(--bg-base)', minHeight: '100vh', borderTop: '1px solid var(--glass-border)' }}
+    >
+      <Sidebar view={view} onViewChange={setView} />
+
+      <main className="flex-1 min-w-0 px-6 py-10 md:px-10 md:py-12">
+        <div className="max-w-4xl">
+          {/* Componentes sempre montados — estado preservado ao trocar de tab */}
+          <div style={{ display: view === 'file'     ? 'block' : 'none' }}><FileAnalysis /></div>
+          <div style={{ display: view === 'realtime' ? 'block' : 'none' }}><RealtimeAnalysis /></div>
+          <div style={{ display: view === 'history'  ? 'block' : 'none' }}><HistoryView /></div>
+        </div>
+      </main>
     </div>
   );
 }
@@ -57,5 +57,15 @@ function HistoryView() {
       </div>
       <AnalysisHistory />
     </div>
+  );
+}
+
+// ── Router ───────────────────────────────────────────────────────────────────
+export function App() {
+  return (
+    <Routes>
+      <Route path="/"          element={<HeroPage />} />
+      <Route path="/dashboard" element={<DashboardPage />} />
+    </Routes>
   );
 }

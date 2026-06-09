@@ -47,8 +47,10 @@ const NAV_ITEMS: { key: View; label: string; sublabel: string; icon: React.React
 ];
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export function Sidebar({ view, onViewChange, analysisCount = 0 }: SidebarProps) {
+  const navigate = useNavigate();
   return (
     <>
       {/* Desktop: vertical sidebar */}
@@ -64,6 +66,20 @@ export function Sidebar({ view, onViewChange, analysisCount = 0 }: SidebarProps)
           className="px-5 py-5 border-b flex items-center gap-2.5"
           style={{ borderColor: 'var(--glass-border)' }}
         >
+          {/* Back to hero */}
+          <button
+            onClick={() => navigate('/')}
+            title="Voltar ao início"
+            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md transition-all duration-200"
+            style={{ color: 'rgba(255,255,255,0.25)', cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-accent)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
             style={{
@@ -162,6 +178,18 @@ export function Sidebar({ view, onViewChange, analysisCount = 0 }: SidebarProps)
           borderColor: 'var(--glass-border)',
         }}
       >
+        {/* Back button mobile */}
+        <button
+          onClick={() => navigate('/')}
+          title="Voltar ao início"
+          className="flex items-center justify-center w-8 h-8 rounded-full mr-1 transition-all duration-200"
+          style={{ color: 'rgba(255,255,255,0.35)', cursor: 'pointer', flexShrink: 0 }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+
         {NAV_ITEMS.map((item) => {
           const isActive = view === item.key;
           return (

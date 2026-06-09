@@ -13,7 +13,7 @@ interface Props {
 function getDiagnosis(probe: RealtimeProbe): string {
   const { over_smoothing_score: os, artificial_periodicity_score: ap, spectral_discontinuity_score: sd } = probe.metrics;
   const max = Math.max(os, ap, sd);
-  const isHuman = probe.label === 'real';
+  const isHuman = !probe.is_alert;
 
   if (isHuman && max < 0.3)
     return 'Padrões biométricos dentro dos limites humanos normais. Variação natural de pitch e timbre confirmada.';
@@ -105,7 +105,7 @@ function ExpandedDetails({ probe }: { probe: RealtimeProbe }) {
 
 function ProbeRow({ probe }: { probe: RealtimeProbe }) {
   const [expanded, setExpanded] = useState(false);
-  const isHuman = probe.label === 'real';
+  const isHuman = !probe.is_alert;
   const syntheticity = probe.syntheticity_index.toFixed(1);
   const time = new Date(probe.timestamp).toLocaleTimeString('pt-PT', {
     hour: '2-digit', minute: '2-digit', second: '2-digit',

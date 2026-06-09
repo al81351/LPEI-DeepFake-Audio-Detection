@@ -105,26 +105,6 @@ export function Hero({ onStartAnalysis }: HeroProps) {
         </div>
       </div>
 
-      {/* Scroll hint */}
-      <div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-10"
-        style={{ animation: 'scroll-bounce 2s ease-in-out infinite' }}
-        aria-hidden
-      >
-        <span
-          className="text-xs font-mono tracking-widest"
-          style={{ color: 'rgba(255,255,255,0.2)', letterSpacing: '0.15em' }}
-        >
-          SCROLL
-        </span>
-        <svg
-          width="20" height="20" viewBox="0 0 24 24"
-          fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2"
-          strokeLinecap="round" strokeLinejoin="round"
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </div>
 
       {/* About modal */}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}

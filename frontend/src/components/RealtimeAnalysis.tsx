@@ -9,7 +9,7 @@ import type { RealtimeProbe } from '../types/analysis';
 // ─── Recent probe row ─────────────────────────────────────────────────────────
 
 function RecentProbeRow({ probe }: { probe: RealtimeProbe }) {
-  const isHuman = probe.label === 'real';
+  const isHuman = !probe.is_alert;
   const time = new Date(probe.timestamp).toLocaleTimeString('pt-PT', {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
@@ -65,7 +65,7 @@ export function RealtimeAnalysis() {
 
   const authLabel = (() => {
     if (!latestProbe) return null;
-    return latestProbe.label === 'real'
+    return !latestProbe.is_alert
       ? { text: 'Humano',   bg: 'rgba(34,197,94,0.12)',  border: 'rgba(34,197,94,0.25)',  color: 'var(--color-safe)'   }
       : { text: 'Sintético', bg: 'rgba(255,51,102,0.12)', border: 'rgba(255,51,102,0.25)', color: 'var(--color-danger)' };
   })();
