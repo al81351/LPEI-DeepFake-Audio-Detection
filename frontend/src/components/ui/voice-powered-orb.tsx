@@ -298,8 +298,9 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
       resize();
 
       let lastTime = 0;
-      let currentRot = 0;
       let isMicInitialized = false;
+      let smoothedHover = 0;
+      let smoothedIntensity = 0;
 
       // Only init internal mic when external level is NOT provided and voice control is on
       if (enableVoiceControl && audioLevelRef.current === undefined) {
@@ -310,7 +311,7 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
         rafId = requestAnimationFrame(update);
         if (!program) return;
 
-        const dt = (t - lastTime) * 0.001;
+        const dt = Math.min((t - lastTime) * 0.001, 0.05);
         lastTime = t;
         program.uniforms.iTime.value = t * 0.001;
         program.uniforms.hue.value   = hue;
@@ -327,12 +328,17 @@ export const VoicePoweredOrb: FC<VoicePoweredOrbProps> = ({
 
         if (onVoiceDetected) onVoiceDetected(voiceLevel > 0.1);
 
-        const voiceRotSpeed = 0.3 + voiceLevel * maxRotationSpeed * 2.0;
-        if (voiceLevel > 0.05) currentRot += dt * voiceRotSpeed;
+        // Smooth lerp: fast attack (~8/s), slow decay (~2.5/s)
+        const targetHover     = Math.min(voiceLevel * 2.0, 1.0);
+        const targetIntensity = Math.min(voiceLevel * maxHoverIntensity * 0.8, maxHoverIntensity);
+        const speed = targetHover > smoothedHover ? 8.0 : 2.5;
+        const alpha = 1 - Math.exp(-dt * speed);
+        smoothedHover     += (targetHover     - smoothedHover)     * alpha;
+        smoothedIntensity += (targetIntensity - smoothedIntensity) * alpha;
 
-        program.uniforms.hover.value          = Math.min(voiceLevel * 2.0, 1.0);
-        program.uniforms.hoverIntensity.value  = Math.min(voiceLevel * maxHoverIntensity * 0.8, maxHoverIntensity);
-        program.uniforms.rot.value             = currentRot;
+        program.uniforms.hover.value          = smoothedHover;
+        program.uniforms.hoverIntensity.value  = smoothedIntensity;
+        program.uniforms.rot.value             = 0;
 
         if (rendererInstance && glContext) {
           glContext.clear(glContext.COLOR_BUFFER_BIT | glContext.DEPTH_BUFFER_BIT);

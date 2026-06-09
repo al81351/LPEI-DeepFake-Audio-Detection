@@ -81,7 +81,15 @@ class FeatureExtractor:
 
     def extract_mfccs(self, signal: np.ndarray, sample_rate: int, n_mfccs: int = 13) -> np.ndarray:
         """
-        Extracts Mel-frequency cepstral coefficients (MFCCs).
+        Extracts Mel-frequency cepstral coefficients (MFCCs) plus spectral features.
+
+        Feature vector (48 dimensions):
+          - 13 MFCC means + 13 delta means + 13 delta² means  = 39
+          - spectral centroid  mean / delta mean / delta² mean =  3
+          - spectral rolloff   mean / delta mean / delta² mean =  3
+          - zero crossing rate mean / delta mean / delta² mean =  3
+                                                               ─────
+                                                                 48
 
         Args:
             signal (np.ndarray): The audio signal.
@@ -89,15 +97,45 @@ class FeatureExtractor:
             n_mfccs (int, optional): The number of MFCCs to extract. Defaults to 13.
 
         Returns:
-            np.ndarray: A 1D array of shape (n_mfccs,) containing the mean of each MFCC over time.
+            np.ndarray: A 1D array of shape (48,) ready for the SVM classifier.
         """
-        mfccs = librosa.feature.mfcc(y=signal, sr=sample_rate, n_mfcc=n_mfccs)
-        delta = librosa.feature.delta(mfccs)
-        delta2 = librosa.feature.delta(mfccs, order=2)
+        # ── MFCCs ────────────────────────────────────────────────────────────
+        mfccs   = librosa.feature.mfcc(y=signal, sr=sample_rate, n_mfcc=n_mfccs)
+        d_mfcc  = librosa.feature.delta(mfccs)
+        d2_mfcc = librosa.feature.delta(mfccs, order=2)
+
+        # ── Spectral centroid ─────────────────────────────────────────────────
+        centroid   = librosa.feature.spectral_centroid(y=signal, sr=sample_rate)   # (1, T)
+        d_cent     = librosa.feature.delta(centroid)
+        d2_cent    = librosa.feature.delta(centroid, order=2)
+
+        # ── Spectral rolloff ──────────────────────────────────────────────────
+        rolloff    = librosa.feature.spectral_rolloff(y=signal, sr=sample_rate)    # (1, T)
+        d_roll     = librosa.feature.delta(rolloff)
+        d2_roll    = librosa.feature.delta(rolloff, order=2)
+
+        # ── Zero crossing rate ────────────────────────────────────────────────
+        zcr        = librosa.feature.zero_crossing_rate(y=signal)                  # (1, T)
+        d_zcr      = librosa.feature.delta(zcr)
+        d2_zcr     = librosa.feature.delta(zcr, order=2)
+
         combined = np.concatenate([
-            np.mean(mfccs, axis=1),
-            np.mean(delta, axis=1),
-            np.mean(delta2, axis=1),
+            # MFCCs (39)
+            np.mean(mfccs,   axis=1),
+            np.mean(d_mfcc,  axis=1),
+            np.mean(d2_mfcc, axis=1),
+            # Spectral centroid (3)
+            np.mean(centroid,  axis=1),
+            np.mean(d_cent,    axis=1),
+            np.mean(d2_cent,   axis=1),
+            # Spectral rolloff (3)
+            np.mean(rolloff,   axis=1),
+            np.mean(d_roll,    axis=1),
+            np.mean(d2_roll,   axis=1),
+            # ZCR (3)
+            np.mean(zcr,       axis=1),
+            np.mean(d_zcr,     axis=1),
+            np.mean(d2_zcr,    axis=1),
         ])
         return combined
 

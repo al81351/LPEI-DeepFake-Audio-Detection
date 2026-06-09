@@ -5,8 +5,9 @@ Uses Microsoft Edge TTS (edge-tts) — neural voice synthesis, free, no GPU need
 Produces MP3 files that train.py already supports.
 
 Install : pip install edge-tts
-Run     : python backend/generate_tts_fakes.py
-          python backend/generate_tts_fakes.py --count 500 --concurrency 15
+Run     : python generate_tts_fakes.py                        # 500 clips mixed
+          python generate_tts_fakes.py --count 250 --pt-only  # 250 clips PT only
+          python generate_tts_fakes.py --count 500 --concurrency 15
 """
 
 import argparse
@@ -151,21 +152,46 @@ async def _generate_one(
             return False
 
 
-async def generate(count: int, concurrency: int, skip_existing: bool) -> None:
+VOICES_PT = [v for v in VOICES if v.startswith("pt-")]
+SENTENCES_PT = [s for s in SENTENCES if any(
+    word in s for word in ["O ", "A ", "Os ", "As ", "Um ", "Uma ", "No ", "Na ",
+                           "comboio", "sol", "crianças", "livro", "pássaro",
+                           "reunião", "mercado", "professora", "Lisboa", "relatório",
+                           "conferência", "alunos", "receita", "sistema", "tecnologia",
+                           "hospital", "previsões", "empresa", "cientista", "biblioteca",
+                           "festival", "equipa", "avião", "câmara"]
+)]
+
+
+async def generate(count: int, concurrency: int, skip_existing: bool, pt_only: bool) -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    voices    = VOICES_PT    if pt_only else VOICES
+    sentences = SENTENCES_PT if pt_only else SENTENCES
+    prefix    = "tts_edge_pt" if pt_only else "tts_edge"
+
+    if pt_only:
+        print(f"Modo PT only: {len(voices)} vozes PT, {len(sentences)} frases PT")
 
     sem = asyncio.Semaphore(concurrency)
     tasks = []
     skipped = 0
 
+    # Find next available index to avoid overwriting existing files
+    existing = {f for f in os.listdir(OUTPUT_DIR) if f.startswith(prefix + "_")}
+    start_index = 0
+    while f"{prefix}_{start_index:04d}.mp3" in existing:
+        start_index += 1
+
     for i in range(count):
-        out_path = os.path.join(OUTPUT_DIR, f"tts_edge_{i:04d}.mp3")
+        idx = start_index + i
+        out_path = os.path.join(OUTPUT_DIR, f"{prefix}_{idx:04d}.mp3")
         if skip_existing and os.path.exists(out_path) and os.path.getsize(out_path) > 1024:
             skipped += 1
             continue
-        text  = random.choice(SENTENCES)
-        voice = random.choice(VOICES)
-        tasks.append(_generate_one(i, text, voice, out_path, sem))
+        text  = random.choice(sentences)
+        voice = random.choice(voices)
+        tasks.append(_generate_one(idx, text, voice, out_path, sem))
 
     if skipped:
         print(f"  {skipped} clips já existem, a saltar…")
@@ -175,7 +201,7 @@ async def generate(count: int, concurrency: int, skip_existing: bool) -> None:
         print("Nada a gerar — todos os clips já existem.")
         return
 
-    print(f"A gerar {to_generate} clips com {len(VOICES)} vozes diferentes…")
+    print(f"A gerar {to_generate} clips com {len(voices)} vozes diferentes…")
     results = await asyncio.gather(*tasks)
     ok = sum(results)
     print(f"\nConcluído: {ok}/{to_generate} novos clips gerados em '{OUTPUT_DIR}'")
@@ -216,9 +242,15 @@ def main() -> None:
         default=True,
         help="Não regenera clips que já existem (default: True)",
     )
+    parser.add_argument(
+        "--pt-only",
+        action="store_true",
+        default=False,
+        help="Gera apenas com vozes PT (pt-PT e pt-BR) e frases em português",
+    )
     args = parser.parse_args()
 
-    asyncio.run(generate(args.count, args.concurrency, args.skip_existing))
+    asyncio.run(generate(args.count, args.concurrency, args.skip_existing, args.pt_only))
 
 
 if __name__ == "__main__":
