@@ -5,7 +5,7 @@ import type { AnalysisResult, HistoryEntry } from '../types/analysis';
 // Render deployment URL.
 const BASE_URL = import.meta.env.DEV
   ? ''
-  : ((import.meta.env.VITE_API_URL as string | undefined) ?? 'https://lpei-deepfake-audio-detection-f9be.onrender.com');
+  : ((import.meta.env.VITE_API_URL as string | undefined) ?? 'https://digital-voice-shield.onrender.com');
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, options);
