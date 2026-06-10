@@ -11,8 +11,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Modelos treinados
-backend/models/*.pkl
 
 # Datasets de áudio
 data/real_audio/
