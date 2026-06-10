@@ -1,6 +1,8 @@
 import type { AnalysisResult, HistoryEntry } from '../types/analysis';
 
-const BASE_URL = '';
+// In production (Vercel), set VITE_API_URL to the Render backend URL.
+// In local dev the variable is unset and the Vite proxy handles all requests.
+const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, options);

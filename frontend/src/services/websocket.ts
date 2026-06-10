@@ -1,6 +1,17 @@
 import type { RealtimeMessage } from '../types/analysis';
 
-const WS_URL = `ws://${window.location.host}/analyze-stream`;
+// Build the WebSocket URL from VITE_API_URL (production) or fall back to the
+// Vite dev-server proxy (local dev).  HTTPS pages require wss://, so we
+// convert the scheme automatically instead of hardcoding ws://.
+function buildWsUrl(): string {
+  const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+  if (apiUrl) {
+    return apiUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://') + '/analyze-stream';
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${proto}://${window.location.host}/analyze-stream`;
+}
+const WS_URL = buildWsUrl();
 
 interface WSConfig {
   sampleRate: number;
