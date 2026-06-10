@@ -4,12 +4,15 @@ import type { RealtimeMessage } from '../types/analysis';
 // Vite dev-server proxy (local dev).  HTTPS pages require wss://, so we
 // convert the scheme automatically instead of hardcoding ws://.
 function buildWsUrl(): string {
-  const apiUrl = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
-  if (apiUrl) {
-    return apiUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://') + '/analyze-stream';
+  if (import.meta.env.DEV) {
+    // Vite proxy forwards ws://localhost:5173/analyze-stream → ws://localhost:8000
+    return `ws://${window.location.host}/analyze-stream`;
   }
-  const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  return `${proto}://${window.location.host}/analyze-stream`;
+  // Production: prefer env variable, fall back to the known Render deployment.
+  const apiUrl =
+    (import.meta.env.VITE_API_URL as string | undefined) ??
+    'https://lpei-deepfake-audio-detection-f9be.onrender.com';
+  return apiUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://') + '/analyze-stream';
 }
 const WS_URL = buildWsUrl();
 

@@ -1,8 +1,11 @@
 import type { AnalysisResult, HistoryEntry } from '../types/analysis';
 
-// In production (Vercel), set VITE_API_URL to the Render backend URL.
-// In local dev the variable is unset and the Vite proxy handles all requests.
-const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+// Local dev: empty string so the Vite proxy routes /analyze, /history, /export
+// to localhost:8000.  Production: env variable if set, otherwise the known
+// Render deployment URL.
+const BASE_URL = import.meta.env.DEV
+  ? ''
+  : ((import.meta.env.VITE_API_URL as string | undefined) ?? 'https://lpei-deepfake-audio-detection-f9be.onrender.com');
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, options);
