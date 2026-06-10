@@ -11,7 +11,7 @@ function buildWsUrl(): string {
   // Production: prefer env variable, fall back to the known Render deployment.
   const apiUrl =
     (import.meta.env.VITE_API_URL as string | undefined) ??
-    'https://lpei-deepfake-audio-detection-f9be.onrender.com';
+    'https://digital-voice-shield.onrender.com';
   return apiUrl.replace(/^https:\/\//, 'wss://').replace(/^http:\/\//, 'ws://') + '/analyze-stream';
 }
 const WS_URL = buildWsUrl();
