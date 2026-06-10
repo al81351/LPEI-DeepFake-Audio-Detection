@@ -1,6 +1,6 @@
 import type { AnalysisResult, HistoryEntry } from '../types/analysis';
 
-const BASE_URL = '';
+const BASE_URL = 'https://lpei-deepfake-audio-detection-f9be.onrender.com';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, options);
