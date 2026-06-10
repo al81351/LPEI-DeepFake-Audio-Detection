@@ -14,7 +14,7 @@ import warnings
 import joblib
 import numpy as np
 from sklearn.svm import SVC
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
@@ -161,9 +161,23 @@ def train(X: np.ndarray, y: np.ndarray) -> tuple[SVC, StandardScaler]:
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    print("\nA treinar o classificador SVM (kernel RBF)...")
-    model = SVC(kernel="rbf", probability=True, random_state=42)
-    model.fit(X_train_scaled, y_train)
+    print("\nA optimizar hiperparâmetros SVM com GridSearchCV (pode demorar 1-2 min)...")
+    param_grid = {
+        "C":     [0.1, 1, 10, 100],
+        "gamma": ["scale", 0.001, 0.01, 0.1],
+    }
+    grid = GridSearchCV(
+        SVC(kernel="rbf", probability=True, random_state=42),
+        param_grid,
+        cv=3,
+        scoring="accuracy",
+        n_jobs=-1,
+        verbose=0,
+    )
+    grid.fit(X_train_scaled, y_train)
+    model = grid.best_estimator_
+    print(f"  Melhores parâmetros: C={grid.best_params_['C']}, gamma={grid.best_params_['gamma']}")
+    print(f"  Melhor accuracy CV:  {grid.best_score_:.4f} ({grid.best_score_*100:.1f}%)")
 
     y_pred = model.predict(X_test_scaled)
     accuracy = accuracy_score(y_test, y_pred)

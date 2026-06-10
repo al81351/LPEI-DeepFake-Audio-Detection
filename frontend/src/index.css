@@ -1,0 +1,173 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* Primitivos — superfícies (OKLCH, nunca hex hardcoded) */
+  --bg-base:     oklch(13% 0.010 260);
+  --bg-surface:  oklch(17% 0.012 260);
+  --bg-elevated: oklch(21% 0.013 260);
+
+  /* RGB fallback for rgba() usage */
+  --color-accent-rgb: 82, 163, 255;
+
+  /* Semânticos */
+  --color-safe:   oklch(75% 0.20 155);  /* verde neon  */
+  --color-warn:   oklch(80% 0.18  85);  /* âmbar       */
+  --color-danger: oklch(65% 0.22  15);  /* vermelho     */
+  --color-accent: oklch(70% 0.18 250);  /* ciano/azul   */
+
+  /* Glassmorphism (grid de 4pt, blur 12px máx) */
+  --glass-bg:     rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-blur:   blur(12px);
+
+  /* Tipografia */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Easing exponencial (impeccable: ease-out entrances) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:  cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+/* ─── Reset / Base ──────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-base);
+  color: oklch(90% 0.005 260);
+  font-family: var(--font-sans);
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* weight compensado para texto claro em fundo escuro */
+  font-weight: 350;
+}
+
+/* ─── Selecção ──────────────────────────────────────────────── */
+::selection {
+  background: oklch(70% 0.18 250 / 0.3);
+}
+
+/* ─── Focus ring (impeccable: :focus-visible only) ──────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-surface); }
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* ─── Utilities ─────────────────────────────────────────────── */
+@layer utilities {
+  .glass-card {
+    background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.065) 0%,
+      rgba(255, 255, 255, 0.028) 100%
+    );
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 4px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .neon-text {
+    color: var(--color-accent);
+    text-shadow:
+      0 0 10px var(--color-accent),
+      0 0 24px var(--color-accent),
+      0 0 48px oklch(70% 0.18 250 / 0.4);
+  }
+
+  /* Números tabulares sem salto de layout */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+/* ─── Range input ────────────────────────────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+}
+input[type='range']:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--color-accent);
+  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+input[type='range']:not(:disabled)::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 14px var(--color-accent);
+}
+input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--color-accent);
+}
+
+/* ─── Hero scroll hint ───────────────────────────────────────── */
+@keyframes scroll-bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(6px); }
+}
+
+/* ─── Foreground token (used by HoverButton) ─────────────────── */
+.foreground { color: oklch(90% 0.005 260); }
+:root { --foreground: oklch(90% 0.005 260); }
+
+/* ─── Reduced motion ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

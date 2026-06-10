@@ -7,3 +7,5 @@ uvicorn[standard]
 python-multipart
 scikit-learn
 joblib
+fpdf2
+matplotlib
