@@ -41,8 +41,6 @@ export function useRealtimeStream(): UseRealtimeStreamReturn {
 
     setStatus('idle');
     setTick(null);
-    setLatestProbe(null);
-    setProbes([]);
   }, []);
 
   const clearProbes = useCallback(() => {

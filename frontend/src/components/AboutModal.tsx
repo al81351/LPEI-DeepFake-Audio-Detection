@@ -64,15 +64,15 @@ const THREAT_CARDS = [
 
 const PIPELINE_STEPS = [
   { label: 'Áudio', sub: '.wav · .mp3 · .flac' },
-  { label: 'MFCC', sub: '39 coeficientes' },
+  { label: 'Features', sub: '48 extraídas' },
   { label: 'SVM', sub: 'Classificador IA' },
   { label: 'Índice', sub: '0–100%' },
-  { label: 'Alerta', sub: 'Acima do limiar' },
+  { label: 'Resultado', sub: 'Verde · Incerto · Vermelho' },
 ];
 
 const STATS = [
   { value: '< 200ms', label: 'Latência em tempo real' },
-  { value: '39', label: 'Features MFCC extraídas' },
+  { value: '48', label: 'Features de áudio extraídas' },
   { value: '3', label: 'Tipos de artefactos detectados' },
 ];
 
