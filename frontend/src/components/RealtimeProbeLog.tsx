@@ -23,7 +23,7 @@ function getDiagnosis(probe: RealtimeProbe): string {
     return 'Artefactos de síntese neural detetados. Padrões espectrais inconsistentes com voz humana natural.';
   if (!isHuman)
     return 'Probabilidade elevada de síntese artificial. Verificar suavização excessiva e periodicidade irregular.';
-  return 'Análise inconclusiva. Métricas marginais — recomenda-se análise adicional.';
+  return 'Classificado como humano pelo modelo. Artefactos elevados podem dever-se a condições acústicas do ambiente.';
 }
 
 // ─── Expanded details (Vaani.io 3-column style) ───────────────────────────────

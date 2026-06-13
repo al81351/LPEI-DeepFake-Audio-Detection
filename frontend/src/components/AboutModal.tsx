@@ -67,7 +67,7 @@ const PIPELINE_STEPS = [
   { label: 'Features', sub: '48 extraídas' },
   { label: 'SVM', sub: 'Classificador IA' },
   { label: 'Índice', sub: '0–100%' },
-  { label: 'Resultado', sub: 'Verde · Incerto · Vermelho' },
+  { label: 'Resultado', sub: 'Real · Incerto · Sintético' },
 ];
 
 const STATS = [
